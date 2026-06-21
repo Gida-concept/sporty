@@ -1,0 +1,64 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+.next/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Database
+*.db
+*.db-journal
+prisma/migrations/**/migration_lock.toml
+
+# Cache
+cache/
+.turbo/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Coverage
+coverage/
+
+# Testing
+playwright-report/
+test-results/
+
+# Misc
+.pnp.*
+.yarn/
+
+# Backend data (disk cache, etc.)
+backend/data/
+
+# TypeScript
+*.tsbuildinfo
+
+# Next.js
+out/
+
+# Cron build artifacts (compiled from .ts)
+cron/*.js
+cron/*.d.ts
+cron/*.d.ts.map
+
+# Temp
+tmp/

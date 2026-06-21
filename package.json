@@ -1,0 +1,39 @@
+{
+  "name": "gamedaywire",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Your Daily Sports & Entertainment News Feed — Automated Programmatic SEO Blog Engine",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "dev": "concurrently -n frontend,backend -c cyan,green \"pnpm --filter frontend dev\" \"pnpm --filter backend dev\"",
+    "build": "pnpm --filter backend build && pnpm --filter frontend build",
+    "start": "concurrently -n frontend,backend -c cyan,green \"pnpm --filter frontend start\" \"pnpm --filter backend start\"",
+    "test": "pnpm --filter backend test",
+    "test:e2e": "pnpm --filter frontend test:e2e",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,json,md}\"",
+    "seed": "pnpm --filter backend seed",
+    "cron:dry-run": "node -e \"const { execSync } = require('child_process'); const job = process.argv[1]; if (!job) { console.error('Usage: pnpm cron:dry-run <jobName>'); process.exit(1); } execSync('npx tsx cron/' + job + '.ts --dry-run', { stdio: 'inherit' });\"",
+    "clean": "pnpm -r exec -- rm -rf dist .next node_modules",
+    "db:studio": "pnpm --filter backend db:studio",
+    "db:migrate": "pnpm --filter backend db:migrate",
+    "db:reset": "pnpm --filter backend db:reset"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "concurrently": "^9.1.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.4.0",
+    "typescript": "^5.7.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.0"
+  }
+}
