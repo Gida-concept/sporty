@@ -591,3 +591,18 @@ Eliminated the `tsconfig-paths` runtime dependency entirely. All 42 backend sour
 ### Next Steps / Blockers
 - Run `pnpm install` to clean up `tsconfig-paths` from `pnpm-lock.yaml`
 - Consider also removing `baseUrl` and `paths` from `backend/tsconfig.json` since they are now unused
+
+---
+
+## Completed — 2026-06-24 — Add SiteSetting Migration SQL
+
+### What Was Done
+Created a new Prisma migration SQL file that adds the `SiteSetting` table and the `articleId` column to the `Trend` table -- both of which were missing from the initial migration but defined in the current Prisma schema.
+
+### Files Created
+- `backend/prisma/migrations/20260620011439_add_site_settings/migration.sql` -- SQL to create `SiteSetting` table (with unique index on `key`) and add `articleId TEXT` column to `Trend`
+
+### Verification
+- [x] Migration file exists at correct path with correct SQL
+- [x] `pnpm --filter backend typecheck` -- zero errors
+- [x] Committed and pushed to origin main
