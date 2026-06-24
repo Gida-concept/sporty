@@ -28,7 +28,10 @@ import adminCategoriesRoutes from '@/routes/admin/categories.js';
 import adminAnalyticsRoutes from '@/routes/admin/analytics.js';
 import adminLinksRoutes from '@/routes/admin/links.js';
 import adminSettingsRoutes from '@/routes/admin/settings.js';
-import { start as startCron } from '../../cron/scheduler.js';
+// Cron scheduler import is done via dynamic import at startup to avoid
+// TypeScript resolving the cross-package dependency at compile time.
+// This keeps the backend build self-contained and prevents the Docker
+// build from needing cron's dependencies installed in its compilation context.
 
 const app: express.Express = express();
 
@@ -107,7 +110,18 @@ if (isDirectRun) {
       console.warn('[Startup] Could not load CORS origin from DB, using default:', (err as Error).message);
     }
 
-    startCron();
+    // Dynamic import with variable path prevents TypeScript from resolving
+    // the cross-package dependency at compile time, keeping the backend
+    // build self-contained. Gracefully handles cron not being available
+    // (e.g. in Docker deployments where only the backend is deployed).
+    try {
+      const cronPath = '../../cron/scheduler.js';
+      const { start: startCron } = await import(cronPath);
+      startCron();
+    } catch (err) {
+      console.warn('[Startup] Cron scheduler not available. Scheduled tasks will not run in this deployment.');
+    }
+
     app.listen(config.port, () => {
       console.log(`[GameDayWire] Backend running on port ${config.port}`);
 
