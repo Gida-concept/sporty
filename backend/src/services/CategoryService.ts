@@ -72,7 +72,7 @@ class CategoryService {
   /**
    * Fetch a single category by its primary key, including article count.
    */
-  async getById(id: number): Promise<CategoryWithCount | null> {
+  async getById(id: string): Promise<CategoryWithCount | null> {
     return this.prisma.category.findUnique({
       where: { id },
       include: {
@@ -120,7 +120,7 @@ class CategoryService {
    * Update an existing category.
    * Validates that the new name and slug (if changed) are unique.
    */
-  async update(id: number, data: UpdateCategoryInput): Promise<Category> {
+  async update(id: string, data: UpdateCategoryInput): Promise<Category> {
     const existing = await this.prisma.category.findUnique({ where: { id } });
     if (!existing) {
       throw new AppError('E008', `Category with id ${id} not found`, 404);
@@ -160,7 +160,7 @@ class CategoryService {
    * category are reassigned before the category is deleted. If the category
    * has no articles, it is deleted directly.
    */
-  async delete(id: number, reassignToId?: number): Promise<void> {
+  async delete(id: string, reassignToId?: string): Promise<void> {
     const existing = await this.prisma.category.findUnique({
       where: { id },
       include: {

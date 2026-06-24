@@ -551,7 +551,9 @@ export async function getTrendingArticles(limit = 5): Promise<Article[]> {
       .sort((a, b) => b.pageviews - a.pageviews)
       .slice(0, limit);
   }
-  const res = await fetch(`/api/articles?sort=pageviews&limit=${limit}`);
+  const res = await fetch(`/api/articles?sort=pageviews&limit=${limit}`, {
+    next: { revalidate: 300 },
+  });
   const json = await res.json();
   if (!json.success) return [];
   return (json.data?.articles || []).map((ba: BackendArticle) => toAppArticle(ba));
@@ -603,7 +605,9 @@ export async function getArticles(params?: {
     p.set('offset', String((params.page - 1) * (params.pageSize || DEFAULT_PAGE_SIZE)));
   if (params?.pageSize) p.set('limit', String(params.pageSize));
   if (params?.search) p.set('search', params.search);
-  const res = await fetch(`/api/articles?${p}`);
+  const res = await fetch(`/api/articles?${p}`, {
+    next: { revalidate: 300 },
+  });
   const json = await res.json();
   if (!json.success) {
     return { data: [], pagination: { page: 1, pageSize: 20, totalPages: 0, totalItems: 0 } };
@@ -628,7 +632,12 @@ export async function getArticleBySlug(slug: string): Promise<ArticleDetailRespo
     const headings = extractHeadings(article.contentBlocks);
     return { article, relatedArticles: related, faqs: generateMockFAQs(), headings };
   }
-  const res = await fetch(`/api/articles?slug=${encodeURIComponent(slug)}&include_body=true`);
+  const res = await fetch(
+    `/api/articles?slug=${encodeURIComponent(slug)}&include_body=true`,
+    {
+      next: { revalidate: 60 },
+    },
+  );
   const json = await res.json();
   if (!json.success || !json.data?.article) return null;
   const ba = json.data.article as BackendArticle;
@@ -640,7 +649,9 @@ export async function getArticleBySlug(slug: string): Promise<ArticleDetailRespo
 
 export async function getFeaturedArticles(limit = 3): Promise<Article[]> {
   if (USE_MOCK_DATA) return MOCK_ARTICLES.filter((a) => a.featured).slice(0, limit);
-  const res = await fetch(`/api/articles?featured=true&limit=${limit}`);
+  const res = await fetch(`/api/articles?featured=true&limit=${limit}`, {
+    next: { revalidate: 300 },
+  });
   const json = await res.json();
   if (!json.success) return [];
   return (json.data?.articles || []).map((ba: BackendArticle) => toAppArticle(ba));
@@ -651,7 +662,9 @@ export async function getTrends(params?: { category?: string; limit?: number }):
   const p = new URLSearchParams();
   if (params?.category) p.set('category', params.category);
   if (params?.limit) p.set('limit', String(params.limit));
-  const res = await fetch(`/api/trends?${p}`);
+  const res = await fetch(`/api/trends?${p}`, {
+    next: { revalidate: 600 },
+  });
   const json = await res.json();
   if (!json.success || !json.data?.trends) return [];
   return json.data.trends.map(
@@ -704,6 +717,9 @@ export async function getArticlesByTag(
   }
   const res = await fetch(
     `/api/articles?tag=${encodeURIComponent(tag)}&offset=${(page - 1) * pageSize}&limit=${pageSize}`,
+    {
+      next: { revalidate: 300 },
+    },
   );
   const json = await res.json();
   if (!json.success) {

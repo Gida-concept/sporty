@@ -1,6 +1,6 @@
 # API Reference — GameDayWire
 
-Full documentation for all 21 API endpoints, authentication, rate limiting, caching policies, error codes, and service interfaces.
+Full documentation for all 23 API endpoints, authentication, rate limiting, caching policies, error codes, and service interfaces.
 
 ---
 
@@ -74,9 +74,8 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'));"
 
 ```json
 {
-  "status": "ok",
+  "success": true,
   "data": { ... },
-  "cached": false,
   "timestamp": "2026-06-19T08:00:00Z"
 }
 ```
@@ -85,7 +84,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'));"
 
 ```json
 {
-  "status": "error",
+  "success": false,
   "error": {
     "code": "ERROR_CODE",
     "message": "Human-readable error description",
@@ -126,6 +125,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'));"
 | `/api/generate`                      | 10/hour             | 1/minute  | Strict limit to conserve API credits                |
 | `/api/webhook`                       | 50/hour             | 5/minute  | HMAC-authenticated                                  |
 | `/api/track`                         | 500/hour            | 50/minute | Lightweight page view recording                     |
+| `/api/settings`                      | 30/minute           | 5/minute  | Public site settings (ad codes, HTML)               |
 | `/api/admin/auth/login`              | 10/hour             | 1/minute  | Admin authentication endpoint                       |
 | `/api/admin/stats`                   | 100/hour            | 10/minute | Admin dashboard — token required                    |
 | `/api/admin/articles`                | 100/hour            | 10/minute | Admin article listing — token required              |
@@ -137,6 +137,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'));"
 | `/api/admin/categories/:id` (PUT)    | 50/hour             | 5/minute  | Category update — token required                    |
 | `/api/admin/categories/:id` (DELETE) | 20/hour             | 2/minute  | Category deletion — token required                  |
 | `/api/admin/analytics`               | 50/hour             | 5/minute  | Analytics data — token required                     |
+| `/api/admin/settings`                | 100/hour            | 10/minute | Get/update site settings — token required           |
 
 #### Cache TTL Summary
 
@@ -146,13 +147,16 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'));"
 | API trend data             | 3 hours                            | New trend_monitor run                         |
 | API keyword data           | 6 hours                            | keyword_refresh daily run                     |
 | API article list           | 1 hour                             | Article publish or update                     |
-| API sitemap XML            | 6 hours                            | Article publish, update, or sitemap_generator |
-| API RSS feed               | 1 hour                             | Article publish or update                     |
+| API sitemap XML            | 24 hours                           | Article publish, update, or sitemap_generator |
+| API RSS feed               | 30 minutes                         | Article publish or update                     |
+| API settings               | 5 minutes                          | Setting update via admin                      |
 | SerpAPI trend responses    | 3 hours                            | Per cache key expiry                          |
 | SerpAPI SERP analysis      | 7 days                             | Cache expiry (competitor data changes slowly) |
 | SerpAPI news results       | 1 hour                             | Cache expiry (news changes frequently)        |
 | SerpAPI keyword validation | 24 hours                           | keyword_refresh daily run                     |
 | PageView tracking data     | No cache (real-time insert/upsert) | Per request                                   |
+
+**Cache middleware enhancements (Phase 16):** The Express in-memory cache layer uses an LRU (Least Recently Used) eviction policy with a 10,000 entry capacity (upgraded from 500 FIFO). Default TTL is 120 seconds. Negative results (e.g., empty result sets) are cached for 15 seconds to prevent thundering herds. A global 30-second request timeout returns 503 on slow responses. The Groq API client includes a content-addressable response cache (1-hour TTL, 500 entry cap) and a 120-second AbortController timeout.
 
 ---
 
@@ -837,6 +841,58 @@ curl -X POST "http://localhost:3001/api/subscribe" \
 #### Cache Behavior
 
 No caching. Each subscription is processed immediately and stored in memory. On server restart, the subscriber list resets. A persistent store (database or third-party email service) should be used in production.
+
+---
+
+### 2.11 GET /api/settings — Public Site Settings
+
+Returns the current site-wide configuration values (ad codes, header/body HTML) for frontend rendering. This is the public, unauthenticated counterpart to the admin settings endpoints.
+
+**Method:** GET
+
+**Authentication:** None (public — rate-limited)
+
+**Rate Limit:** 30/minute, 5/minute burst
+
+#### Query Parameters
+
+None.
+
+#### Example Request
+
+```bash
+curl "http://localhost:3001/api/settings"
+```
+
+#### Response Schema
+
+```json
+{
+  "success": true,
+  "data": {
+    "head_html": "<!-- Google Analytics --><script>...</script>",
+    "body_html": "<!-- Cookie banner --><div id=\"cookie-banner\">...</div>",
+    "ad_header_banner": "<ins class=\"adsbygoogle\" style=\"display:inline-block;width:728px;height:90px\">...</ins>",
+    "ad_sidebar_1": "<ins class=\"adsbygoogle\" style=\"display:inline-block;width:300px;height:250px\">...</ins>",
+    "ad_sidebar_2": "",
+    "ad_article_sidebar": "",
+    "ad_in_article_1": "",
+    "ad_in_article_2": ""
+  },
+  "timestamp": "2026-06-23T12:00:00Z"
+}
+```
+
+#### Cache Behavior
+
+Settings responses are cached for 5 minutes. Cache is invalidated when settings are updated via the admin PUT endpoint.
+
+#### Error Responses
+
+| HTTP Status | Error Code        | Description                        |
+| ----------- | ----------------- | ---------------------------------- |
+| 429         | RATE_LIMIT        | Exceeded 30 requests per minute    |
+| 500         | INTERNAL_ERROR    | Database read failure              |
 
 ---
 
@@ -1585,6 +1641,119 @@ curl "http://localhost:3001/api/admin/analytics?start_date=2026-05-01&end_date=2
 
 ---
 
+### 3.14 GET /api/admin/settings — Get Site Settings
+
+Returns all current site-wide settings (ad codes, header/body HTML). Requires admin bearer token.
+
+**Method:** GET
+
+**Authentication:** Bearer token required
+
+**Rate Limit:** 100/hour, 10/minute burst
+
+#### Example Request
+
+```bash
+curl "http://localhost:3001/api/admin/settings" \
+  -H "Authorization: Bearer YOUR_SESSION_TOKEN"
+```
+
+#### Response Schema
+
+```json
+{
+  "success": true,
+  "data": {
+    "head_html": "<!-- Google Analytics --><script>...</script>",
+    "body_html": "<!-- Cookie banner --><div id=\"cookie-banner\">...</div>",
+    "ad_header_banner": "",
+    "ad_sidebar_1": "",
+    "ad_sidebar_2": "",
+    "ad_article_sidebar": "",
+    "ad_in_article_1": "",
+    "ad_in_article_2": ""
+  },
+  "timestamp": "2026-06-23T12:00:00Z"
+}
+```
+
+#### Error Responses
+
+| HTTP Status | Error Code | Description                    |
+| ----------- | ---------- | ------------------------------ |
+| 401         | E010       | Missing or invalid admin token |
+| 429         | RATE_LIMIT | Exceeded 100 requests per hour |
+| 500         | INTERNAL_ERROR | Database read failure     |
+
+---
+
+### 3.15 PUT /api/admin/settings — Update Site Settings
+
+Updates one or more site-wide settings values. Supports partial updates — only provided keys are changed.
+
+**Method:** PUT
+
+**Authentication:** Bearer token required
+
+**Rate Limit:** 100/hour, 10/minute burst
+
+#### Request Body (JSON)
+
+| Parameter         | Type   | Required | Description                             |
+| ----------------- | ------ | -------- | --------------------------------------- |
+| head_html         | string | No       | HTML injected into `<head>`             |
+| body_html         | string | No       | HTML injected after `<body>`            |
+| ad_header_banner  | string | No       | 728x90 header banner ad code            |
+| ad_sidebar_1      | string | No       | 300x250 sidebar middle ad code          |
+| ad_sidebar_2      | string | No       | 300x250 sidebar bottom ad code          |
+| ad_article_sidebar | string | No       | 300x250 article sidebar ad code         |
+| ad_in_article_1   | string | No       | 300x250 in-article (position 1) ad code |
+| ad_in_article_2   | string | No       | 300x250 in-article (position 2) ad code |
+
+#### Example Request
+
+```bash
+curl -X PUT "http://localhost:3001/api/admin/settings" \
+  -H "Authorization: Bearer YOUR_SESSION_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"ad_header_banner": "<ins class=\"adsbygoogle\">...</ins>"}'
+```
+
+#### Response Schema
+
+```json
+{
+  "success": true,
+  "data": {
+    "head_html": "",
+    "body_html": "",
+    "ad_header_banner": "<ins class=\"adsbygoogle\">...</ins>",
+    "ad_sidebar_1": "",
+    "ad_sidebar_2": "",
+    "ad_article_sidebar": "",
+    "ad_in_article_1": "",
+    "ad_in_article_2": ""
+  },
+  "message": "Settings updated successfully",
+  "timestamp": "2026-06-23T12:00:00Z"
+}
+```
+
+#### Cache Behavior
+
+Updating settings invalidates the public `GET /api/settings` response cache, ensuring the frontend picks up changes within the next 5-minute cache window.
+
+#### Error Responses
+
+| HTTP Status | Error Code        | Description                    |
+| ----------- | ----------------- | ------------------------------ |
+| 400         | INVALID_PARAMETER | No valid setting keys provided |
+| 401         | E010              | Missing or invalid admin token |
+| 429         | RATE_LIMIT        | Exceeded 100 requests per hour |
+| 500         | INTERNAL_ERROR    | Database write failure         |
+
+---
+
 ## 4. Service Interfaces
 
 All services reside in `backend/src/services/`. They are not directly exposed to the web; they are used by cron jobs and route handlers.
@@ -1732,6 +1901,11 @@ All services reside in `backend/src/services/`. They are not directly exposed to
 - `getTimeSeries(options: AnalyticsQuery): AnalyticsData`
 - `getArticleAnalytics(articleId: string): ArticleAnalytics`
 - `getTopArticles(period: string, limit?: number): Article[]`
+
+### SiteSettingsService (site configuration)
+
+- `getAllSettings(): Record<string, string>`
+- `updateSettings(settings: Record<string, string>): Record<string, string>`
 
 ---
 

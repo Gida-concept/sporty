@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import CategoryTable from '@/components/admin/CategoryTable';
 import CategoryForm from '@/components/admin/CategoryForm';
-import Button from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import {
   createCategory,
   deleteCategory,
@@ -25,8 +25,8 @@ export default function AdminCategoriesPage() {
     setIsLoading(true);
     setError('');
     try {
-      const data = await getAdminCategories();
-      setCategories(data.data || data || []);
+      const result = await getAdminCategories();
+      setCategories(result.data?.categories || []);
     } catch (err) {
       setError('Failed to load categories.');
     } finally {
@@ -79,7 +79,7 @@ export default function AdminCategoriesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Categories</h1>
-        <Button variant="primary" onClick={openCreate}>
+        <Button onClick={openCreate}>
           <svg className="mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
@@ -185,8 +185,7 @@ export default function AdminCategoriesPage() {
               </div>
             )}
             <div className="flex justify-end gap-3">
-              <Button
-                variant="secondary"
+              <Button variant="outline"
                 onClick={() => {
                   setDeletingCategory(null);
                   setReassignTo('');
@@ -194,8 +193,7 @@ export default function AdminCategoriesPage() {
               >
                 Cancel
               </Button>
-              <Button
-                variant="danger"
+              <Button variant="destructive"
                 onClick={handleDelete}
                 disabled={deletingCategory.articleCount > 0 && !reassignTo}
               >

@@ -41,8 +41,8 @@ export interface ArticleData {
   h1: string;
   contentHtml: string;
   contentBlocks: string;
-  keywordId: number;
-  trendId: number | null;
+  keywordId: string;
+  trendId: string | null;
   wordCount: number;
   readingLevel: number;
   schemaMarkup: string;
@@ -410,7 +410,7 @@ class Publisher {
   /**
    * Count how many published articles already exist for the given keyword.
    */
-  private async countExistingForKeyword(keywordId: number): Promise<number> {
+  private async countExistingForKeyword(keywordId: string): Promise<number> {
     return this.prisma.article.count({
       where: {
         keywordId,

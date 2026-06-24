@@ -49,11 +49,14 @@ sportytainment/
 │   │   │   │   └── page.tsx          # Category CRUD management
 │   │   │   ├── analytics/
 │   │   │   │   └── page.tsx          # Analytics dashboard
+│   │   │   └── settings/
+│   │   │       └── page.tsx          # Site settings (ad codes, HTML)
 │   │   │   └── links/
 │   │   │       └── page.tsx          # Link management interface
 │   │   │
 │   │   ├── components/               # React components
 │   │   ├── ui/                       # Shared UI primitives
+│   │   │   ├── AdSlot.tsx             # Ad code container with customHtml support
 │   │   │   ├── Button.tsx
 │   │   │   ├── Card.tsx
 │   │   │   ├── Badge.tsx
@@ -70,9 +73,10 @@ sportytainment/
 │   │   │   ├── MetaTags.tsx          # OG / Twitter card meta
 │   │   │   └── Breadcrumbs.tsx       # Breadcrumb navigation
 │   │   └── layout/                   # Layout components
+│   │       ├── LayoutShell.tsx       # Root layout wrapper (conditional public chrome)
 │   │       ├── Header.tsx            # Site header / navigation
 │   │       ├── Footer.tsx            # Site footer
-│   │       ├── Sidebar.tsx           # Sidebar with trending / related
+│   │       ├── Sidebar.tsx           # Sidebar with trending / related + ad slots
 │   │       └── SearchBar.tsx         # Search component
 │   │   ├── admin/                    # Admin-specific components
 │   │       ├── AdminLayout.tsx       # Admin layout shell with sidebar + header
@@ -120,6 +124,7 @@ sportytainment/
 │   │   │   ├── health.ts             # GET /api/health
 │   │   │   ├── generate.ts           # POST /api/generate
 │   │   │   ├── webhook.ts            # POST /api/webhook
+│   │   │   ├── settings.ts           # GET /api/settings — public site settings
 │   │   │   ├── track.ts              # GET /api/track — lightweight page view recording
 │   │   │   └── admin/                # Admin route handlers
 │   │   │       ├── auth.ts           # POST /api/admin/auth/login
@@ -127,6 +132,7 @@ sportytainment/
 │   │   │       ├── articles.ts       # GET/PATCH/DELETE /api/admin/articles
 │   │   │       ├── categories.ts     # CRUD /api/admin/categories
 │   │   │       ├── analytics.ts      # GET /api/admin/analytics
+│   │   │       ├── settings.ts       # GET/PUT /api/admin/settings — site configuration
 │   │   │       ├── links.ts          # POST/DELETE /api/admin/articles/:id/links
 │   │   │       └── track.ts          # GET /api/track
 │   │   │
@@ -153,7 +159,8 @@ sportytainment/
 │   │   │   ├── AdminService.ts       # Dashboard stats, article admin operations
 │   │   │   ├── CategoryService.ts    # Category CRUD operations and reassignment
 │   │   │   ├── LinkService.ts        # Article-level link management and sync
-│   │   │   └── AnalyticsService.ts   # PageView tracking, aggregation queries
+│   │   │   ├── AnalyticsService.ts   # PageView tracking, aggregation queries
+│   │   │   └── SiteSettingsService.ts # Key-value site settings store
 │   │   │
 │   │   ├── middleware/               # Express middleware
 │   │   │   ├── auth.ts               # Token-based authentication
@@ -172,7 +179,7 @@ sportytainment/
 │   │       └── index.ts              # Environment config loader
 │   │
 │   ├── prisma/                       # Prisma ORM
-│   │   ├── schema.prisma             # Database schema (7 models)
+│   │   ├── schema.prisma             # Database schema (10 models, incl. SiteSetting)
 │   │   ├── migrations/               # Migration history
 │   │   └── seed.ts                   # Initial data seeding
 │   │
@@ -250,12 +257,14 @@ sportytainment/
 | `admin/articles/[id]/page.tsx`    | Article detail/edit with per-post analytics        | None — auth-only            | Client                        |
 | `admin/categories/page.tsx`       | Category CRUD management                           | None — auth-only            | Client                        |
 | `admin/analytics/page.tsx`        | Time-series analytics dashboard                    | None — auth-only            | Client                        |
+| `admin/settings/page.tsx`         | Site settings form (ad codes, HTML injections)     | None — auth-only            | Client                        |
 | `admin/links/page.tsx`            | Link management interface                          | None — auth-only            | Client                        |
 
 ### Components (`components/`)
 
 | Component                     | Purpose                                               |
 | ----------------------------- | ----------------------------------------------------- |
+| `ui/AdSlot.tsx`               | Ad code container with customHtml support             |
 | `ui/Button.tsx`               | Reusable button component                             |
 | `ui/Card.tsx`                 | Generic card container                                |
 | `ui/Badge.tsx`                | Category/status badge                                 |
@@ -269,9 +278,10 @@ sportytainment/
 | `seo/JsonLd.tsx`              | Injects JSON-LD structured data                       |
 | `seo/MetaTags.tsx`            | Manages OG / Twitter card meta tags                   |
 | `seo/Breadcrumbs.tsx`         | Breadcrumb navigation with schema                     |
+| `layout/LayoutShell.tsx`      | Root layout wrapper (conditional public chrome)       |
 | `layout/Header.tsx`           | Site header and main navigation                       |
 | `layout/Footer.tsx`           | Site footer with links                                |
-| `layout/Sidebar.tsx`          | Sidebar with trending/related content                 |
+| `layout/Sidebar.tsx`          | Sidebar with trending/related content + ad slots      |
 | `layout/SearchBar.tsx`        | Search input component                                |
 | `admin/AdminLayout.tsx`       | Admin layout shell with sidebar + header              |
 | `admin/AdminSidebar.tsx`      | Admin navigation sidebar                              |
@@ -300,6 +310,7 @@ sportytainment/
 | `POST /api/generate`                           | `generate.ts`         | Manual article generation      | 10/hour    |
 | `POST /api/webhook`                            | `webhook.ts`          | External service callbacks     | 50/hour    |
 | `GET /api/track`                               | `track.ts`            | Lightweight page view tracking | 500/hour   |
+| `GET /api/settings`                            | `settings.ts`         | Public site settings           | 30/minute  |
 | `POST /api/admin/auth/login`                   | `admin/auth.ts`       | Admin authentication           | 10/hour    |
 | `GET /api/admin/stats`                         | `admin/stats.ts`      | Dashboard statistics           | 100/hour   |
 | `GET /api/admin/articles`                      | `admin/articles.ts`   | Paginated article list         | 100/hour   |
@@ -313,6 +324,8 @@ sportytainment/
 | `PUT /api/admin/categories/:id`                | `admin/categories.ts` | Update category                | 50/hour    |
 | `DELETE /api/admin/categories/:id`             | `admin/categories.ts` | Delete category                | 20/hour    |
 | `GET /api/admin/analytics`                     | `admin/analytics.ts`  | Time-series analytics          | 50/hour    |
+| `GET /api/admin/settings`                      | `admin/settings.ts`   | Get site settings              | 100/hour   |
+| `PUT /api/admin/settings`                      | `admin/settings.ts`   | Update site settings           | 100/hour   |
 
 ### Services (`src/services/`) — Business Logic
 
@@ -341,6 +354,7 @@ sportytainment/
 | `CategoryService`  | Category CRUD operations and reassignment safety      | New (no PHP equivalent)          |
 | `LinkService`      | Article-level link management and sync                | New (no PHP equivalent)          |
 | `AnalyticsService` | PageView tracking, daily aggregation queries          | New (no PHP equivalent)          |
+| `SiteSettingsService` | Key-value site settings store (ad codes, HTML)     | New (no PHP equivalent)          |
 
 ### External API Clients (`src/lib/`)
 
@@ -414,5 +428,5 @@ See [Cron Jobs](./cron-jobs.md) for complete documentation.
 | `docker-compose.yml`           | Optional Docker setup for local development                       |
 | `frontend/next.config.ts`      | Next.js configuration (images, rewrites, headers, ISR)            |
 | `frontend/tailwind.config.ts`  | Tailwind CSS theme, colors, typography                            |
-| `backend/prisma/schema.prisma` | Database schema (9 models)                                        |
+| `backend/prisma/schema.prisma` | Database schema (10 models, incl. SiteSetting)                    |
 | `backend/vitest.config.ts`     | Backend test configuration                                        |

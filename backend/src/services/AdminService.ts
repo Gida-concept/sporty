@@ -218,7 +218,7 @@ class AdminService {
    * Fetch a single article by its primary key, including its category
    * associations.
    */
-  async getArticleById(id: number): Promise<Article | null> {
+  async getArticleById(id: string): Promise<Article | null> {
     return this.prisma.article.findUnique({
       where: { id },
       include: {
@@ -234,7 +234,7 @@ class AdminService {
    * Returns the updated article with categories included.
    */
   async updateArticle(
-    id: number,
+    id: string,
     data: Partial<
       Pick<
         Article,
@@ -264,7 +264,7 @@ class AdminService {
    * deleted from the database, which cascades to related PageView, SeoMetric,
    * and LinkGraph rows.
    */
-  async deleteArticle(id: number, permanent: boolean = false): Promise<void> {
+  async deleteArticle(id: string, permanent: boolean = false): Promise<void> {
     const existing = await this.prisma.article.findUnique({ where: { id } });
     if (!existing) {
       throw new AppError('E008', `Article with id ${id} not found`, 404);

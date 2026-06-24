@@ -39,7 +39,7 @@ Two articles are published daily — one at 08:00 UTC and one at 19:00 UTC — t
 
 | Document                            | Purpose                                                                       |
 | ----------------------------------- | ----------------------------------------------------------------------------- |
-| [API Reference](./api-reference.md) | All 21 endpoints (8 public + 13 admin), request/response schemas, error codes |
+| [API Reference](./api-reference.md) | All 23 endpoints (9 public + 14 admin), request/response schemas, error codes |
 | [Database](./database.md)           | Prisma schema for all 9 models, indexes, migrations                           |
 | [Cron Jobs](./cron-jobs.md)         | All 9 scheduled tasks, schedules, exit codes, dry-run testing                 |
 
@@ -183,21 +183,22 @@ See [Cron Jobs](./cron-jobs.md) for schedules, exit codes, and dry-run testing.
 
 ## API Endpoints
 
-### Public Endpoints (8)
+### Public Endpoints (9)
 
-| Method | Path            | Rate Limit | Auth           | Purpose                                      |
-| ------ | --------------- | ---------- | -------------- | -------------------------------------------- |
-| GET    | `/api/trends`   | 100/hour   | None           | Current trending topics as JSON              |
-| GET    | `/api/keywords` | 100/hour   | None           | Keyword matrix opportunities as JSON         |
-| GET    | `/api/articles` | 200/hour   | None           | Published article list and search as JSON    |
-| GET    | `/api/sitemap`  | 50/hour    | None           | Dynamic XML sitemap (index, articles, pages) |
-| GET    | `/api/rss`      | 100/hour   | None           | Full-text RSS 2.0 feed                       |
-| GET    | `/api/health`   | 50/hour    | None           | System health check with service statuses    |
-| GET    | `/api/track`    | 500/hour   | None           | Lightweight page view tracking               |
-| POST   | `/api/generate` | 10/hour    | Token required | Manual article generation trigger            |
-| POST   | `/api/webhook`  | 50/hour    | HMAC verify    | External service callback receiver           |
+| Method | Path            | Rate Limit | Auth           | Purpose                                                 |
+| ------ | --------------- | ---------- | -------------- | ------------------------------------------------------- |
+| GET    | `/api/trends`   | 100/hour   | None           | Current trending topics as JSON                         |
+| GET    | `/api/keywords` | 100/hour   | None           | Keyword matrix opportunities as JSON                    |
+| GET    | `/api/articles` | 200/hour   | None           | Published article list and search as JSON               |
+| GET    | `/api/sitemap`  | 50/hour    | None           | Dynamic XML sitemap (index, articles, pages)            |
+| GET    | `/api/rss`      | 100/hour   | None           | Full-text RSS 2.0 feed                                  |
+| GET    | `/api/health`   | 50/hour    | None           | System health check with service statuses               |
+| GET    | `/api/track`    | 500/hour   | None           | Lightweight page view tracking                          |
+| GET    | `/api/settings` | 30/min     | None           | Public site settings (ad codes, header/body HTML)       |
+| POST   | `/api/generate` | 10/hour    | Token required | Manual article generation trigger                       |
+| POST   | `/api/webhook`  | 50/hour    | HMAC verify    | External service callback receiver                      |
 
-### Admin Endpoints (13)
+### Admin Endpoints (15)
 
 | Method | Path                                    | Rate Limit | Auth          | Purpose                        |
 | ------ | --------------------------------------- | ---------- | ------------- | ------------------------------ |
@@ -214,6 +215,8 @@ See [Cron Jobs](./cron-jobs.md) for schedules, exit codes, and dry-run testing.
 | PUT    | `/api/admin/categories/:id`             | 50/hour    | Bearer token  | Update category                |
 | DELETE | `/api/admin/categories/:id`             | 20/hour    | Bearer token  | Delete category                |
 | GET    | `/api/admin/analytics`                  | 50/hour    | Bearer token  | Time-series analytics          |
+| GET    | `/api/admin/settings`                   | 100/hour   | Bearer token  | Get site settings (ad codes, HTML) |
+| PUT    | `/api/admin/settings`                   | 100/hour   | Bearer token  | Update site settings           |
 
 See [API Reference](./api-reference.md) for full request/response schemas, error codes, and examples.
 

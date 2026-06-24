@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
-import { config, validateConfig } from '@/config/index.js';
+import { config, validateConfig, adminTokenIsFromEnv } from '@/config/index.js';
 import { errorHandler } from '@/middleware/errorHandler.js';
 
 // Route imports
@@ -17,6 +17,7 @@ import rssRoutes from '@/routes/rss.js';
 import generateRoutes from '@/routes/generate.js';
 import webhookRoutes from '@/routes/webhook.js';
 import trackRoutes from '@/routes/track.js';
+import settingsRoutes from '@/routes/settings.js';
 
 // Admin route imports
 import adminAuthRoutes from '@/routes/admin/auth.js';
@@ -25,6 +26,7 @@ import adminArticlesRoutes from '@/routes/admin/articles.js';
 import adminCategoriesRoutes from '@/routes/admin/categories.js';
 import adminAnalyticsRoutes from '@/routes/admin/analytics.js';
 import adminLinksRoutes from '@/routes/admin/links.js';
+import adminSettingsRoutes from '@/routes/admin/settings.js';
 import { start as startCron } from '../../cron/scheduler.js';
 
 const app: express.Express = express();
@@ -32,7 +34,7 @@ const app: express.Express = express();
 app.set('trust proxy', 1);
 
 // Middleware stack (order matters)
-app.use(cors());
+app.use(cors({ origin: config.corsOrigin || 'http://localhost:3000' }));
 app.use(helmet());
 
 const globalLimiter = rateLimit({
@@ -44,6 +46,18 @@ const globalLimiter = rateLimit({
 });
 app.use(globalLimiter);
 app.use(compression());
+
+// Global request timeout (30 seconds)
+app.use((req, res, next) => {
+  res.setTimeout(30_000, () => {
+    res.status(503).json({
+      success: false,
+      error: { code: 'E013', message: 'Request timed out' },
+    });
+  });
+  next();
+});
+
 app.use(morgan('combined'));
 app.use(express.json());
 
@@ -57,6 +71,7 @@ app.use('/api/rss', rssRoutes);
 app.use('/api/generate', generateRoutes);
 app.use('/api/webhook', webhookRoutes);
 app.use('/api/track', trackRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Admin API routes (auth uses its own login without adminAuth)
 app.use('/api/admin/auth', adminAuthRoutes);
@@ -65,19 +80,37 @@ app.use('/api/admin/articles', adminArticlesRoutes);
 app.use('/api/admin/categories', adminCategoriesRoutes);
 app.use('/api/admin/analytics', adminAnalyticsRoutes);
 app.use('/api/admin', adminLinksRoutes);
+app.use('/api/admin/settings', adminSettingsRoutes);
 
 // Error handler (must be last)
 app.use(errorHandler);
 
 export { app };
 
+const scriptPath = (process.argv[1] ?? '').replace(/\\/g, '/');
 const isDirectRun =
-  process.argv[1] &&
-  (process.argv[1].endsWith('/index.ts') || process.argv[1].endsWith('/index.js'));
+  scriptPath &&
+  (scriptPath.endsWith('/index.ts') || scriptPath.endsWith('/index.js'));
 
 if (isDirectRun) {
   startCron();
   app.listen(config.port, () => {
     console.log(`[GameDayWire] Backend running on port ${config.port}`);
+
+    if (!adminTokenIsFromEnv) {
+      const line = '═'.repeat(50);
+      console.log('');
+      console.log(`╔${line}╗`);
+      console.log(`║${'ADMIN LOGIN TOKEN'.padStart(33).padEnd(50)}║`);
+      console.log(`║${'  (auto-generated — not stored, save it now)'.padEnd(50)}║`);
+      console.log(`║${' '.repeat(50)}║`);
+      console.log(`║${`  Token: ${config.adminToken}`.padEnd(50)}║`);
+      console.log(`║${' '.repeat(50)}║`);
+      console.log(`║${'  Set ADMIN_TOKEN in .env for a permanent token'.padEnd(50)}║`);
+      console.log(`╚${line}╝`);
+      console.log('');
+    } else {
+      console.log('[GameDayWire] Admin login configured via ADMIN_TOKEN environment variable.');
+    }
   });
 }

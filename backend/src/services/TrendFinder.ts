@@ -175,7 +175,7 @@ class TrendFinder {
    * by category slug.
    */
   async getTopTopics(limit: number = 10, category?: string): Promise<Trend[]> {
-    const where: { processed: boolean; categoryId?: number } = { processed: false };
+    const where: { processed: boolean; categoryId?: string } = { processed: false };
 
     if (category) {
       const cat = await this.prisma.category.findUnique({ where: { slug: category } });

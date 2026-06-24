@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
-import Header from '@/components/layout/Header';
-import Footer from '@/components/layout/Footer';
-import CookieConsent from '@/components/ui/CookieConsent';
+import LayoutShell from '@/components/layout/LayoutShell';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-inter' });
@@ -49,14 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           Skip to content
         </a>
-        <div className="flex min-h-screen flex-col">
-          <Header />
-          <main id="main-content" className="flex-1 pt-16">
-            {children}
-          </main>
-          <Footer />
-        </div>
-        <CookieConsent />
+        <LayoutShell>{children}</LayoutShell>
       </body>
     </html>
   );

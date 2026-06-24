@@ -3,17 +3,17 @@ import SEOOptimizer from './SEOOptimizer.js';
 import SchemaBuilder from './SchemaBuilder.js';
 // Local type stubs (Prisma types not yet available)
 interface Keyword {
-  id: number;
+  id: string;
   keyword: string;
   headTerm: string;
   modifier: string | null;
   intent: string | null;
-  categoryId: number;
+  categoryId: string;
 }
 interface Trend {
-  id: number;
+  id: string;
   query: string;
-  categoryId: number;
+  categoryId: string;
 }
 
 /**
@@ -84,8 +84,8 @@ export interface ArticleData {
   h1: string;
   contentHtml: string;
   contentBlocks: string; // JSON string
-  keywordId: number;
-  trendId: number | null;
+  keywordId: string;
+  trendId: string | null;
   wordCount: number;
   readingLevel: number;
   schemaMarkup: string; // JSON string

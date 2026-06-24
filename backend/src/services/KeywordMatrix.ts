@@ -105,7 +105,7 @@ function detectIntent(modifier: string): IntentType {
 /*  CategoryId cache helper                                           */
 /* ------------------------------------------------------------------ */
 
-async function resolveCategoryId(prisma: PrismaClient, slug: string): Promise<number> {
+async function resolveCategoryId(prisma: PrismaClient, slug: string): Promise<string> {
   const record = await prisma.category.findUnique({ where: { slug } });
   if (!record) {
     throw new AppError('E005', `Category '${slug}' not found`);
@@ -267,7 +267,7 @@ class KeywordMatrix {
   /**
    * Update the status of a single keyword.
    */
-  async updateStatus(keywordId: number, status: string): Promise<void> {
+  async updateStatus(keywordId: string, status: string): Promise<void> {
     await this.prisma.keyword.update({
       where: { id: keywordId },
       data: { status },

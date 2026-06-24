@@ -33,7 +33,7 @@ export default async function SportsPage({
         backgroundImage="https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=1500&q=80"
         articleCount={result?.pagination.totalItems || 0}
       />
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1fr_320px]">
           <div>
             <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Sports' }]} className="mb-6" />

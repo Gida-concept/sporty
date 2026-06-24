@@ -16,7 +16,7 @@ export interface DashboardMetrics {
   totalUniqueVisitors: number;
   avgTimeOnPage: number | null;
   topArticles: Array<{
-    id: number;
+    id: string;
     title: string;
     slug: string;
     pageviews: number;
@@ -173,7 +173,7 @@ class MetricsCollector {
    * Get per-article metrics including total page views, unique visitors, SEO
    * history, and daily view breakdown.
    */
-  async getArticleMetrics(articleId: number): Promise<ArticleMetrics> {
+  async getArticleMetrics(articleId: string): Promise<ArticleMetrics> {
     const [pageViewAgg, seoHistory, dailyViews, article] = await Promise.all([
       this.prisma.pageView.aggregate({
         where: { articleId },
@@ -211,7 +211,7 @@ class MetricsCollector {
    * Upserts the PageView row keyed on (articleId, date) to increment the daily
    * counter, and also increments the article-level lifetime pageviews counter.
    */
-  async recordPageView(articleId: number, _referrer?: string): Promise<PageView> {
+  async recordPageView(articleId: string, _referrer?: string): Promise<PageView> {
     const todayStart = this.getStartOfToday();
 
     // Upsert the daily PageView record

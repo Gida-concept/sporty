@@ -85,8 +85,8 @@ router.get(
   listLimiter,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = parseInt(String(req.params.id), 10);
-      if (isNaN(id)) {
+      const id = req.params.id as string;
+      if (!id) {
         throw new AppError('E012', 'Invalid article ID', 400);
       }
 
@@ -166,7 +166,7 @@ const updateBodySchema = z.object({
   meta_description: z.string().optional(),
   h1: z.string().optional(),
   status: z.enum(['published', 'draft', 'archived']).optional(),
-  category_ids: z.array(z.number()).optional(),
+  category_ids: z.array(z.string()).optional(),
 });
 
 router.patch(
@@ -176,8 +176,8 @@ router.patch(
   validate(updateBodySchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = parseInt(String(req.params.id), 10);
-      if (isNaN(id)) {
+      const id = req.params.id as string;
+      if (!id) {
         throw new AppError('E012', 'Invalid article ID', 400);
       }
 
@@ -204,7 +204,7 @@ router.patch(
 
         if (req.body.category_ids.length > 0) {
           await prisma.articleCategory.createMany({
-            data: req.body.category_ids.map((catId: number) => ({
+            data: req.body.category_ids.map((catId: string) => ({
               articleId: id,
               categoryId: catId,
             })),
@@ -279,8 +279,8 @@ router.delete(
   deleteLimiter,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = parseInt(String(req.params.id), 10);
-      if (isNaN(id)) {
+      const id = req.params.id as string;
+      if (!id) {
         throw new AppError('E012', 'Invalid article ID', 400);
       }
 

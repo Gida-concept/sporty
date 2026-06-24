@@ -150,7 +150,7 @@ class SERPTracker {
    *
    * Returns an empty array when the keyword has never been tracked.
    */
-  async getPositionHistory(keywordId: number): Promise<SeoMetric[]> {
+  async getPositionHistory(keywordId: string): Promise<SeoMetric[]> {
     return this.prisma.seoMetric.findMany({
       where: { article: { keywordId } },
       orderBy: { trackedAt: 'desc' },
@@ -169,7 +169,7 @@ class SERPTracker {
    * - 'dropped'    – current position is higher (worse) than the previous
    * - 'maintained' – positions are equal or fewer than 2 records exist
    */
-  async detectMovement(keywordId: number): Promise<MovementDirection> {
+  async detectMovement(keywordId: string): Promise<MovementDirection> {
     const records = await this.prisma.seoMetric.findMany({
       where: { article: { keywordId } },
       orderBy: { trackedAt: 'desc' },

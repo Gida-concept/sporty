@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import StatsCard from '@/components/admin/StatsCard';
 import { type DashboardStats, getDashboardStats } from '@/lib/admin-api';
-import Button from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { formatDate } from '@/lib/formatters';
 
 export default function AdminDashboardPage() {
@@ -16,7 +16,7 @@ export default function AdminDashboardPage() {
     setError('');
     try {
       const data = await getDashboardStats();
-      setStats(data);
+      setStats(data.data || data);
     } catch (err) {
       setError('Failed to load dashboard stats. Please try again.');
     } finally {
@@ -50,7 +50,7 @@ export default function AdminDashboardPage() {
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <div className="flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-white px-6 py-12">
           <p className="mb-4 text-sm text-red-600">{error}</p>
-          <Button variant="primary" onClick={fetchStats}>
+          <Button onClick={fetchStats}>
             Retry
           </Button>
         </div>

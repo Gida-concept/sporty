@@ -1,7 +1,7 @@
 'use client';
 
-import Badge from '@/components/ui/Badge';
-import Button from '@/components/ui/Button';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { formatDate } from '@/lib/formatters';
 
 export interface AdminCategory {
@@ -84,7 +84,7 @@ export default function CategoryTable({ categories, onEdit, onDelete }: Category
                 {cat.description || '-'}
               </td>
               <td className="whitespace-nowrap px-6 py-4">
-                <Badge variant="info">{cat.articleCount}</Badge>
+                <Badge variant="secondary">{cat.articleCount}</Badge>
               </td>
               <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
                 {formatDate(cat.createdAt)}

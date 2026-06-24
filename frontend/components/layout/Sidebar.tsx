@@ -1,10 +1,17 @@
 import Link from 'next/link';
 import AdSlot from '@/components/ui/AdSlot';
 import { getTrendingArticles } from '@/lib/api-client';
+import { getPublicSettings } from '@/lib/admin-api';
 import NewsletterSubscribe from '@/components/layout/NewsletterSubscribe';
 
 export default async function Sidebar() {
   const trending = await getTrendingArticles(5).catch(() => []);
+  const settings = await getPublicSettings().catch(() => ({}));
+
+  const adCodes: Record<string, string> = {
+    'sidebar-1': settings.ad_sidebar_1 || '',
+    'sidebar-2': settings.ad_sidebar_2 || '',
+  };
 
   return (
     <aside className="space-y-8">
@@ -38,13 +45,13 @@ export default async function Sidebar() {
       </div>
 
       {/* Ad slot */}
-      <AdSlot slotId="sidebar-1" format="rectangle" />
+      <AdSlot slotId="sidebar-1" format="rectangle" customHtml={adCodes['sidebar-1'] || null} />
 
       {/* Stay Updated */}
       <NewsletterSubscribe />
 
       {/* Bottom ad slot */}
-      <AdSlot slotId="sidebar-2" format="rectangle" />
+      <AdSlot slotId="sidebar-2" format="rectangle" customHtml={adCodes['sidebar-2'] || null} />
     </aside>
   );
 }

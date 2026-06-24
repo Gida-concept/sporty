@@ -105,7 +105,7 @@ class ContentGuide {
    * Persist a generated guide to the database, linked to an existing article.
    * Uses upsert to handle the unique constraint on articleId.
    */
-  async save(articleId: number, keywordId: number, guide: GuideData): Promise<PrismaContentGuide> {
+  async save(articleId: string, keywordId: string, guide: GuideData): Promise<PrismaContentGuide> {
     const saved = await this.prisma.contentGuide.upsert({
       where: { articleId },
       update: {

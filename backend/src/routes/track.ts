@@ -8,12 +8,12 @@ const rateLimiter = createRateLimiter({ windowMs: 3600000, max: 500 });
 
 router.get('/', rateLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const articleId = parseInt(req.query.article_id as string, 10);
+    const articleId = req.query.article_id as string;
     const ref = (req.query.ref as string) || 'direct';
 
-    // Validate article_id is a positive integer
-    if (!articleId || isNaN(articleId) || articleId < 1) {
-      throw new AppError('E012', 'article_id must be a valid positive integer', 400);
+    // Validate article_id is a non-empty string
+    if (!articleId || typeof articleId !== 'string' || articleId.trim().length === 0) {
+      throw new AppError('E012', 'article_id must be a valid non-empty string', 400);
     }
 
     // Check that the article exists

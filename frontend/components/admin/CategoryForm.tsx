@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Button from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 
 interface Category {
   id: number;
@@ -117,10 +117,10 @@ export default function CategoryForm({ category, onSave, onCancel }: CategoryFor
       </div>
 
       <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
-        <Button variant="secondary" type="button" onClick={onCancel}>
+        <Button variant="outline" type="button" onClick={onCancel}>
           Cancel
         </Button>
-        <Button variant="primary" type="submit">
+        <Button type="submit">
           {isEditing ? 'Update Category' : 'Create Category'}
         </Button>
       </div>

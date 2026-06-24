@@ -2,18 +2,22 @@ import Link from 'next/link';
 import Image from 'next/image';
 import type { Metadata } from 'next';
 import ArticleCard from '@/components/article/ArticleCard';
-import Badge from '@/components/ui/Badge';
-import Card from '@/components/ui/Card';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { getArticles, getTrends } from '@/lib/api-client';
 import { formatDate } from '@/lib/formatters';
+
+export const revalidate = 300; // ISR: revalidate every 5 minutes
 
 export const metadata: Metadata = {
   title: 'Sports & Entertainment News — Latest Analysis and Trends',
 };
 
 export default async function HomePage() {
-  const articlesData = await getArticles({ pageSize: 12 }).catch(() => null);
-  const trendsData = await getTrends({ limit: 5 }).catch(() => null);
+  const [articlesData, trendsData] = await Promise.all([
+    getArticles({ pageSize: 12 }).catch(() => null),
+    getTrends({ limit: 5 }).catch(() => null),
+  ]);
 
   const articles = articlesData?.data || [];
   const trends = (trendsData || []).map((t) => ({
@@ -45,7 +49,7 @@ export default async function HomePage() {
 
               {/* Hero content */}
               <div className="relative max-w-3xl">
-                <Badge variant="sports" size="md" className="mb-4">
+                <Badge variant="sports" className="mb-4">
                   {featured.category}
                 </Badge>
                 <h1 className="mb-4 text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
@@ -129,23 +133,24 @@ export default async function HomePage() {
           {trends.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               {trends.map((trend) => (
-                <Card key={trend.term} hover>
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-start justify-between">
-                      <span className="text-sm font-medium text-gray-900">{trend.term}</span>
-                      <span className="ml-2 flex-shrink-0 rounded-full bg-brand-100 px-2 py-0.5 text-xs font-medium text-brand-700">
-                        {trend.score}
-                      </span>
+                <Card key={trend.term} className="transition-shadow hover:shadow-md">
+                  <CardContent className="p-5">
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-start justify-between">
+                        <span className="text-sm font-medium text-gray-900">{trend.term}</span>
+                        <span className="ml-2 flex-shrink-0 rounded-full bg-brand-100 px-2 py-0.5 text-xs font-medium text-brand-700">
+                          {trend.score}
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full rounded-full bg-gray-200">
+                        <div
+                          className="h-1.5 rounded-full bg-brand-600"
+                          style={{ width: `${trend.score}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="h-1.5 w-full rounded-full bg-gray-200">
-                      <div
-                        className="h-1.5 rounded-full bg-brand-600"
-                        style={{ width: `${trend.score}%` }}
-                      />
-                    </div>
-                  </div>
-                </Card>
-              ))}
+                  </CardContent>
+                </Card>))}
             </div>
           ) : (
             <p className="text-center text-gray-500">No trending topics at the moment.</p>

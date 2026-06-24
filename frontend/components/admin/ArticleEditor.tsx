@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Button from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 
 interface Category {
   id: number;
@@ -164,10 +164,10 @@ export default function ArticleEditor({
       </div>
 
       <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-6">
-        <Button variant="secondary" type="button" onClick={onCancel}>
+        <Button variant="outline" type="button" onClick={onCancel}>
           Cancel
         </Button>
-        <Button variant="primary" type="submit">
+        <Button type="submit">
           Save Changes
         </Button>
       </div>

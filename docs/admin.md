@@ -16,6 +16,7 @@ Comprehensive guide to the admin section: dashboard, article management, link ma
 8. [Admin API Reference](#8-admin-api-reference)
 9. [Admin UI Overview](#9-admin-ui-overview)
 10. [Architecture Decisions](#10-architecture-decisions)
+11. [Site Settings](#11-site-settings)
 
 ---
 
@@ -30,6 +31,7 @@ The admin section provides manual oversight and content management for the GameD
 - **Manage categories** — Create, edit, delete categories with proper article reassignment
 - **Manage links** — Add and remove HTML links on articles (internal and external)
 - **Track analytics** — Time-series view data per article with daily aggregation
+- **Manage settings** — Update site-wide configuration (ad codes, HTML injections) via web form
 
 ### 1.2 Key Features
 
@@ -625,6 +627,8 @@ All admin endpoints are prefixed with `/api/admin/` and require `Authorization: 
 | `PUT`    | `/api/admin/categories/:id`             | 10/hour    | Update a category                            |
 | `DELETE` | `/api/admin/categories/:id`             | 10/hour    | Delete a category (with reassignment)        |
 | `GET`    | `/api/admin/analytics`                  | 30/hour    | Time-series pageview data                    |
+| `GET`    | `/api/admin/settings`                   | 100/hour   | Get site settings (ad codes, header/body HTML) |
+| `PUT`    | `/api/admin/settings`                   | 100/hour   | Update site settings                         |
 
 ### 8.2 Tracking Endpoint
 
@@ -677,13 +681,14 @@ On 401 response, the frontend clears the token from `localStorage` and redirects
 | `/admin/articles/[id]` | `admin/articles/[id]/page.tsx` | Article editor: metadata, categories, links, analytics    |
 | `/admin/categories`    | `admin/categories/page.tsx`    | Category CRUD table with inline create/edit/delete        |
 | `/admin/analytics`     | `admin/analytics/page.tsx`     | Charts: views over time, top articles, period selector    |
+| `/admin/settings`      | `admin/settings/page.tsx`      | Site settings: header HTML, body HTML, ad code management |
 
 ### 9.2 Components
 
 | Component                  | Purpose                                                                         |
 | -------------------------- | ------------------------------------------------------------------------------- |
 | `admin/AdminLayout.tsx`    | Sidebar + header wrapper for all admin pages                                    |
-| `admin/AdminSidebar.tsx`   | Navigation links (Dashboard, Articles, Categories, Analytics) with active state |
+| `admin/AdminSidebar.tsx`   | Navigation links (Dashboard, Articles, Categories, Analytics, Settings) with active state |
 | `admin/StatsCard.tsx`      | Single stat with icon, label, value, and trend indicator                        |
 | `admin/ArticleTable.tsx`   | Table with columns: title, status, views, categories, actions                   |
 | `admin/ArticleEditor.tsx`  | Form to edit title, meta description, h1, status, categories                    |
@@ -704,6 +709,7 @@ admin/layout.tsx
 │       │   ├── Articles link
 │       │   ├── Categories link
 │       │   ├── Analytics link
+│       │   ├── Settings link
 │       │   └── Logout button
 │       ├── AdminHeader (user info, logout)
 │       └── Page content area
@@ -784,6 +790,104 @@ The many-to-many approach with an explicit join table (`ArticleCategory`) allows
 | Array column on Article          | No referential integrity, hard to query             |
 
 The explicit `ArticleCategory` model costs one extra table but provides referential integrity and extensibility.
+
+---
+
+## 11. Site Settings
+
+### 11.1 Purpose
+
+The Site Settings page (`/admin/settings`) provides a web-based form to manage global site-wide configuration values that are stored in the database rather than environment variables. This allows non-developer operators to update ad codes, analytics snippets, and custom HTML injections without touching `.env` files or redeploying.
+
+### 11.2 Settings Fields
+
+| Field                | Key                | Purpose                                                    |
+| -------------------- | ------------------ | ---------------------------------------------------------- |
+| Head HTML            | `head_html`        | HTML injected into `<head>` (analytics, meta tags, fonts)  |
+| Body HTML            | `body_html`        | HTML injected after `<body>` (cookie banners, overlays)    |
+| Header Banner Ad     | `ad_header_banner` | 728x90 leaderboard ad code above the site header           |
+| Sidebar Ad 1         | `ad_sidebar_1`     | 300x250 ad in right sidebar (middle position)              |
+| Sidebar Ad 2         | `ad_sidebar_2`     | 300x250 ad in right sidebar (bottom position)              |
+| Article Sidebar Ad   | `ad_article_sidebar` | 300x250 ad on article page right sidebar                 |
+| In-Article Ad 1      | `ad_in_article_1`  | 300x250 ad after ~3rd content block in article body        |
+| In-Article Ad 2      | `ad_in_article_2`  | 300x250 ad after ~7th content block in article body        |
+
+### 11.3 Backend: SiteSettingsService
+
+The `SiteSettingsService` (`backend/src/services/SiteSettingsService.ts`) provides two methods backed by the `SiteSetting` Prisma model:
+
+| Method                               | Description                                  |
+| ------------------------------------ | -------------------------------------------- |
+| `getAllSettings()`                   | Returns all settings as a flat key-value map |
+| `updateSettings(settings)`           | Upserts provided settings, returns updated   |
+
+**Data flow:**
+
+```
+Admin Settings Page → fetch("/api/admin/settings")
+                       ↓
+              AdminService calls SiteSettingsService.getAllSettings()
+                       ↓
+              JSON response to frontend
+                       ↓
+              User edits fields → PUT /api/admin/settings
+                       ↓
+              SiteSettingsService.updateSettings() → Prisma upsert
+```
+
+### 11.4 Data Model
+
+The `SiteSetting` Prisma model is a simple key-value store:
+
+```prisma
+model SiteSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@map("site_settings")
+}
+```
+
+### 11.5 Public Settings Endpoint
+
+A public unauthenticated endpoint `GET /api/settings` (rate limited to 30/minute) exposes the current settings to the frontend for rendering. This endpoint returns the settings object without exposing any admin-only data:
+
+```json
+{
+  "success": true,
+  "data": {
+    "head_html": "...",
+    "body_html": "...",
+    "ad_header_banner": "...",
+    "ad_sidebar_1": "...",
+    "ad_sidebar_2": "...",
+    "ad_article_sidebar": "...",
+    "ad_in_article_1": "...",
+    "ad_in_article_2": "..."
+  },
+  "timestamp": "2026-06-23T12:00:00Z"
+}
+```
+
+### 11.6 Frontend Rendering
+
+Settings values are fetched by the public `GET /api/settings` endpoint and passed to frontend components:
+
+- **LayoutShell** renders `ad_header_banner` above the site header on public pages
+- **Sidebar** component fetches settings and passes ad codes to `AdSlot` components
+- **Article page** fetches settings, passes ad codes to the sidebar AdSlot, and renders in-article ads between content blocks via the `splitBlocksWithAds()` helper
+- **AdSlot** (`frontend/components/ui/AdSlot.tsx`) accepts a `customHtml` prop — when provided, renders the ad code via `dangerouslySetInnerHTML`; falls back to a placeholder when empty
+
+### 11.7 Key Design Decisions
+
+| Decision                        | Rationale                                                              |
+| ------------------------------- | ---------------------------------------------------------------------- |
+| **Key-value store**             | Simple, extensible — no schema changes needed to add new settings      |
+| **Database-backed**             | Survives restarts, no .env changes needed for non-sensitive config     |
+| **Separate public/admin APIs**  | Public GET is unauthenticated for frontend consumption; admin GET/PUT require bearer token |
+| **`dangerouslySetInnerHTML`**   | Required for ad scripts; operator is responsible for trusting ad code sources |
 
 ---
 

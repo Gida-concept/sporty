@@ -1,51 +1,82 @@
-import { ReactNode } from 'react';
+import * as React from 'react';
+import { cn } from '@/lib/utils';
 
-interface CardProps {
-  children: ReactNode;
-  className?: string;
-  image?: { src: string; alt: string };
-  header?: ReactNode;
-  footer?: ReactNode;
-  hover?: boolean;
-  onClick?: () => void;
-}
+const Card = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn(
+      'rounded-xl border bg-card text-card-foreground shadow-sm',
+      className,
+    )}
+    {...props}
+  />
+));
+Card.displayName = 'Card';
 
-export default function Card({
-  children,
-  className = '',
-  image,
-  header,
-  footer,
-  hover,
-  onClick,
-}: CardProps) {
-  return (
-    <div
-      className={`overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm ${hover ? 'transition-shadow hover:shadow-md cursor-pointer' : ''} ${className}`}
-      onClick={onClick}
-      role={onClick ? 'button' : undefined}
-      tabIndex={onClick ? 0 : undefined}
-      onKeyDown={
-        onClick
-          ? (e) => {
-              if (e.key === 'Enter' || e.key === ' ') onClick();
-            }
-          : undefined
-      }
-    >
-      {image && (
-        <div className="aspect-video overflow-hidden bg-gray-100">
-          <img
-            src={image.src}
-            alt={image.alt}
-            className="h-full w-full object-cover"
-            loading="lazy"
-          />
-        </div>
-      )}
-      {header && <div className="border-b border-gray-100 px-5 py-4">{header}</div>}
-      <div className="px-5 py-4">{children}</div>
-      {footer && <div className="border-t border-gray-100 px-5 py-3">{footer}</div>}
-    </div>
-  );
-}
+const CardHeader = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn('flex flex-col space-y-1.5 p-6', className)}
+    {...props}
+  />
+));
+CardHeader.displayName = 'CardHeader';
+
+const CardTitle = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn('font-semibold leading-none tracking-tight', className)}
+    {...props}
+  />
+));
+CardTitle.displayName = 'CardTitle';
+
+const CardDescription = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn('text-sm text-muted-foreground', className)}
+    {...props}
+  />
+));
+CardDescription.displayName = 'CardDescription';
+
+const CardContent = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div ref={ref} className={cn('p-6 pt-0', className)} {...props} />
+));
+CardContent.displayName = 'CardContent';
+
+const CardFooter = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn('flex items-center p-6 pt-0', className)}
+    {...props}
+  />
+));
+CardFooter.displayName = 'CardFooter';
+
+export {
+  Card,
+  CardHeader,
+  CardFooter,
+  CardTitle,
+  CardDescription,
+  CardContent,
+};

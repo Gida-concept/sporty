@@ -11,7 +11,7 @@ export interface TimeSeriesOptions {
   startDate: Date;
   endDate: Date;
   granularity: Granularity;
-  articleId?: number;
+  articleId?: string;
 }
 
 export interface TimeSeriesPoint {
@@ -32,7 +32,7 @@ export interface ArticleAnalytics {
 }
 
 export interface TopArticle {
-  id: number;
+  id: string;
   title: string;
   slug: string;
   pageviews: number;
@@ -60,7 +60,7 @@ class AnalyticsService {
    *
    * Throws AppError E011 on failure.
    */
-  async trackPageview(articleId: number, _referrer?: string): Promise<PageView> {
+  async trackPageview(articleId: string, _referrer?: string): Promise<PageView> {
     try {
       const todayStart = this.getStartOfToday();
 
@@ -183,7 +183,7 @@ class AnalyticsService {
    * Get comprehensive analytics for a single article: lifetime totals and a
    * 30-day breakdown.
    */
-  async getArticleAnalytics(articleId: number): Promise<ArticleAnalytics> {
+  async getArticleAnalytics(articleId: string): Promise<ArticleAnalytics> {
     const article = await this.prisma.article.findUnique({
       where: { id: articleId },
       select: { id: true, pageviews: true, avgTimeOnPage: true },

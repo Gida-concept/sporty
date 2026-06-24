@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import AnalyticsChart from '@/components/admin/AnalyticsChart';
 import StatsCard from '@/components/admin/StatsCard';
-import Button from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { getAnalytics } from '@/lib/admin-api';
 import { formatCompactNumber } from '@/lib/formatters';
 
@@ -23,14 +23,6 @@ interface TopArticle {
   pageviews?: number;
   count?: number;
   id?: number;
-}
-
-interface AnalyticsResponse {
-  timeSeries?: AnalyticsDataPoint[];
-  series?: AnalyticsDataPoint[];
-  data?: AnalyticsDataPoint[];
-  topArticles?: TopArticle[];
-  top_articles?: TopArticle[];
 }
 
 export default function AdminAnalyticsPage() {
@@ -55,13 +47,15 @@ export default function AdminAnalyticsPage() {
         const from = new Date(now);
         from.setDate(from.getDate() - parseInt(dateRange));
 
-        const data: AnalyticsResponse = await getAnalytics({
+        const result = await getAnalytics({
           from: from.toISOString().split('T')[0],
           to: now.toISOString().split('T')[0],
           granularity,
         });
 
-        const series: AnalyticsDataPoint[] = data.timeSeries || data.series || data.data || [];
+        // Backend envelope: { success, data: { time_series, summary, top_articles }, timestamp }
+        const responseData = result.data || {};
+        const series: AnalyticsDataPoint[] = responseData.time_series || [];
         setChartData(series);
 
         // Compute summary
@@ -76,7 +70,7 @@ export default function AdminAnalyticsPage() {
             : { date: '', pageviews: 0 };
 
         setSummary({ total, avgDaily, topDay: topDayVal });
-        setTopArticles(data.topArticles || data.top_articles || []);
+        setTopArticles(responseData.top_articles || []);
       } catch {
         setError('Failed to load analytics data.');
       } finally {
@@ -150,7 +144,7 @@ export default function AdminAnalyticsPage() {
       ) : error ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-white px-6 py-12">
           <p className="mb-4 text-sm text-red-600">{error}</p>
-          <Button variant="primary" onClick={() => window.location.reload()}>
+          <Button onClick={() => window.location.reload()}>
             Retry
           </Button>
         </div>

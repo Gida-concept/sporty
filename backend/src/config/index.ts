@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -7,11 +8,24 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
+// Admin token resolution: use env var if set, otherwise auto-generate
+function resolveAdminToken(): { token: string; fromEnv: boolean } {
+  const envToken = process.env.ADMIN_TOKEN;
+  if (envToken && envToken.trim().length > 0) {
+    return { token: envToken.trim(), fromEnv: true };
+  }
+  return { token: crypto.randomUUID(), fromEnv: false };
+}
+
+const _adminTokenResult = resolveAdminToken();
+export const adminTokenIsFromEnv = _adminTokenResult.fromEnv;
+
 export interface AppConfig {
   // Server
   port: number;
   nodeEnv: string;
   siteUrl: string;
+  corsOrigin: string;
 
   // Database
   databaseUrl: string;
@@ -68,6 +82,7 @@ export const config: AppConfig = {
   port: envInt('PORT', 3001),
   nodeEnv: envString('NODE_ENV', 'development'),
   siteUrl: envString('SITE_URL', 'http://localhost:3000'),
+  corsOrigin: envString('CORS_ORIGIN', 'http://localhost:3000'),
 
   databaseUrl: envString('DATABASE_URL', 'file:./dev.db'),
 
@@ -78,7 +93,7 @@ export const config: AppConfig = {
   googleServiceAccountEmail: envString('GOOGLE_INDEXING_CLIENT_EMAIL'),
   googlePrivateKey: envString('GOOGLE_INDEXING_PRIVATE_KEY'),
 
-  adminToken: envString('ADMIN_TOKEN', 'dev-admin-token'),
+  adminToken: _adminTokenResult.token,
   webhookSecret: envString('WEBHOOK_SECRET', 'dev-webhook-secret'),
 
   defaultCategory: envString('DEFAULT_CATEGORY', 'sports'),
@@ -100,7 +115,6 @@ export function validateConfig(): void {
   const requiredEnvVars: Array<{ key: string; value: string; name: string }> = [
     { key: 'SERPAPI_KEY', value: config.serpApiKey, name: 'SerpAPI Key' },
     { key: 'GROQ_API_KEY', value: config.groqApiKey, name: 'Groq API Key' },
-    { key: 'ADMIN_TOKEN', value: config.adminToken, name: 'Admin Token' },
     { key: 'DATABASE_URL', value: config.databaseUrl, name: 'Database URL' },
   ];
 
@@ -113,17 +127,24 @@ export function validateConfig(): void {
 
   // Guard against dev fallback defaults in production
   const devFallbacks: Array<{ key: string; value: string; name: string }> = [
-    { key: 'ADMIN_TOKEN', value: config.adminToken, name: 'Admin Token' },
     { key: 'WEBHOOK_SECRET', value: config.webhookSecret, name: 'Webhook Secret' },
   ];
 
   for (const fb of devFallbacks) {
-    if (fb.value === (fb.key === 'ADMIN_TOKEN' ? 'dev-admin-token' : 'dev-webhook-secret')) {
+    if (fb.value === 'dev-webhook-secret') {
       if (config.nodeEnv === 'production') {
         throw new Error(`Environment variable ${fb.key} is set to the development fallback value. Set a secure value for production.`);
       } else {
         console.warn(`Warning: ${fb.key} is using the development fallback value. Set a secure value for production.`);
       }
     }
+  }
+
+  // Production guard: ADMIN_TOKEN must be explicitly set in production
+  if (config.nodeEnv === 'production' && !adminTokenIsFromEnv) {
+    throw new Error(
+      'ADMIN_TOKEN must be set in the .env file for production. ' +
+      'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"',
+    );
   }
 }

@@ -3,6 +3,26 @@ import { createRateLimiter } from '@/middleware/rateLimiter.js';
 import { cache } from '@/middleware/cache.js';
 import prisma from '@/lib/prisma.js';
 
+// Category slug -> id cache (revalidated hourly)
+const categoryIdCache = new Map<string, string>();
+let categoryCacheTimestamp = 0;
+const CATEGORY_CACHE_TTL = 3600_000; // 1 hour
+
+async function getCategoryId(slug: string): Promise<string | null> {
+  const now = Date.now();
+  if (categoryCacheTimestamp && now - categoryCacheTimestamp < CATEGORY_CACHE_TTL) {
+    return categoryIdCache.get(slug) ?? null;
+  }
+  // Refresh cache
+  categoryIdCache.clear();
+  const categories = await prisma.category.findMany({ select: { id: true, slug: true } });
+  for (const cat of categories) {
+    categoryIdCache.set(cat.slug, cat.id);
+  }
+  categoryCacheTimestamp = now;
+  return categoryIdCache.get(slug) ?? null;
+}
+
 const router: Router = Router();
 const limiter = createRateLimiter({ windowMs: 3600000, max: 100 });
 
@@ -21,9 +41,9 @@ router.get(
       const where: Record<string, unknown> = {};
 
       if (category !== 'all') {
-        const cat = await prisma.category.findUnique({ where: { slug: category } });
-        if (cat) {
-          where.categoryId = cat.id;
+        const catId = await getCategoryId(category);
+        if (catId !== null) {
+          where.categoryId = catId;
         }
       }
 

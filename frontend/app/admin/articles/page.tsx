@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ArticleTable from '@/components/admin/ArticleTable';
-import Button from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { deleteArticle, getArticles } from '@/lib/admin-api';
 
 export default function AdminArticlesPage() {
@@ -33,8 +33,8 @@ export default function AdminArticlesPage() {
       const filters: Record<string, string | number> = { page, limit: 10 };
       if (statusFilter !== 'all') filters.status = statusFilter;
       const result = await getArticles(filters);
-      setArticles(result.data || result.articles || []);
-      setTotalPages(result.totalPages || Math.ceil((result.total || 0) / 10) || 1);
+      setArticles(result.data?.articles || result.articles || []);
+      setTotalPages(result.data?.totalPages || Math.ceil((result.data?.total || 0) / 10) || 1);
     } catch (err) {
       setError('Failed to load articles.');
     } finally {
@@ -123,7 +123,7 @@ export default function AdminArticlesPage() {
       ) : error ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-white px-6 py-12">
           <p className="mb-4 text-sm text-red-600">{error}</p>
-          <Button variant="primary" onClick={fetchArticles}>
+          <Button onClick={fetchArticles}>
             Retry
           </Button>
         </div>
@@ -134,9 +134,7 @@ export default function AdminArticlesPage() {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
+              <Button variant="outline" size="sm"
                 disabled={page <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
@@ -161,9 +159,7 @@ export default function AdminArticlesPage() {
                     </button>
                   </span>
                 ))}
-              <Button
-                variant="secondary"
-                size="sm"
+              <Button variant="outline" size="sm"
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               >

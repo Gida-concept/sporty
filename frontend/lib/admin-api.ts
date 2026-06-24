@@ -31,6 +31,12 @@ async function adminFetch<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
+export interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  timestamp: string;
+}
+
 export interface DashboardStats {
   totalArticles: number;
   publishedArticles: number;
@@ -68,7 +74,7 @@ export async function login(token: string): Promise<{ sessionToken: string }> {
 export async function isAuthenticated(): Promise<boolean> {
   return !!getToken();
 }
-export async function getDashboardStats(): Promise<DashboardStats> {
+export async function getDashboardStats(): Promise<ApiResponse<DashboardStats>> {
   return adminFetch('/admin/stats');
 }
 export async function getArticles(filters?: {
@@ -127,4 +133,22 @@ export async function addLink(
 }
 export async function removeLink(articleId: string, linkId: string): Promise<any> {
   return adminFetch(`/admin/articles/${articleId}/links/${linkId}`, { method: 'DELETE' });
+}
+
+export async function getSettings(): Promise<any> {
+  return adminFetch('/admin/settings');
+}
+
+export async function updateSettings(settings: Record<string, string>): Promise<any> {
+  return adminFetch('/admin/settings', {
+    method: 'PUT',
+    body: JSON.stringify(settings),
+  });
+}
+
+export async function getPublicSettings(): Promise<any> {
+  const res = await fetch(`${API_BASE}/settings`);
+  if (!res.ok) return {};
+  const json = await res.json();
+  return json.data || {};
 }

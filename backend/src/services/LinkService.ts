@@ -13,7 +13,7 @@ export interface AddLinkInput {
 }
 
 export interface LinkJsonEntry {
-  linkGraphId: number;
+  linkGraphId: string;
   targetSlug: string;
   anchorText: string;
   linkType: string;
@@ -48,7 +48,7 @@ class LinkService {
    * externalLinks JSON array. Internal links go into internalLinks; all
    * other link types go into externalLinks.
    */
-  async addLink(articleId: number, data: AddLinkInput): Promise<LinkGraph> {
+  async addLink(articleId: string, data: AddLinkInput): Promise<LinkGraph> {
     const article = await this.prisma.article.findUnique({
       where: { id: articleId },
       select: { id: true, slug: true, internalLinks: true, externalLinks: true },
@@ -99,7 +99,7 @@ class LinkService {
    * Deletes the LinkGraph record and removes the corresponding entry from
    * the Article's internalLinks or externalLinks JSON array.
    */
-  async removeLink(articleId: number, linkId: number): Promise<void> {
+  async removeLink(articleId: string, linkId: string): Promise<void> {
     const article = await this.prisma.article.findUnique({
       where: { id: articleId },
       select: { id: true, internalLinks: true, externalLinks: true },
@@ -147,7 +147,7 @@ class LinkService {
   /**
    * Get all LinkGraph entries for a given article.
    */
-  async getArticleLinks(articleId: number): Promise<LinkGraph[]> {
+  async getArticleLinks(articleId: string): Promise<LinkGraph[]> {
     const article = await this.prisma.article.findUnique({
       where: { id: articleId },
       select: { id: true },
@@ -170,7 +170,7 @@ class LinkService {
    * This is useful when the JSON arrays were modified directly (e.g., during
    * content generation) and the LinkGraph table needs to be synchronized.
    */
-  async syncLinkGraph(articleId: number): Promise<number> {
+  async syncLinkGraph(articleId: string): Promise<number> {
     const article = await this.prisma.article.findUnique({
       where: { id: articleId },
       select: {

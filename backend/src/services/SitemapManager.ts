@@ -68,14 +68,19 @@ class SitemapManager {
    * size.
    */
   async generateArticleSitemap(articles?: Article[], page?: number): Promise<string> {
+    const pageNum = Math.max(1, page ?? 1);
+    const pageSize = 1000;
+
     const resolvedArticles =
       articles ??
       (await this.prisma.article.findMany({
         where: { status: 'published' },
         orderBy: { publishedAt: 'desc' },
+        take: pageSize,
+        skip: (pageNum - 1) * pageSize,
       }));
 
-    const limit = page ?? MAX_SITEMAP_URLS;
+    const limit = MAX_SITEMAP_URLS;
     const sliced = resolvedArticles.slice(0, limit);
     const baseUrl = this.getBaseUrl();
 

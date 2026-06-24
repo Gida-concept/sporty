@@ -73,6 +73,14 @@ class GroqAPI {
    */
   public totalCostUsd = 0;
 
+  /**
+   * Content-addressable response cache: identical prompts hit the cache
+   * for up to 1 hour, avoiding redundant LLM API calls.
+   */
+  private responseCache = new Map<string, { response: ChatCompletionResponse; timestamp: number }>();
+  private readonly CACHE_TTL_MS = 3600_000; // 1 hour
+  private readonly MAX_CACHE_ENTRIES = 500;
+
   // -----------------------------------------------------------------------
   // Public API
   // -----------------------------------------------------------------------
@@ -95,7 +103,16 @@ class GroqAPI {
       body.response_format = params.response_format;
     }
 
-    return this._fetch('/chat/completions', body);
+    // Check content-addressable cache — identical prompts reuse cached responses
+    const cached = this.getCachedResponse(body);
+    if (cached) return cached;
+
+    const result = await this._fetch('/chat/completions', body);
+
+    // Cache the successful response for future identical prompts
+    this.setCachedResponse(body, result);
+
+    return result;
   }
 
   /**
@@ -194,6 +211,33 @@ class GroqAPI {
   // -----------------------------------------------------------------------
 
   /**
+   * Check the content-addressable cache for a previously returned response
+   * matching the given request body. Returns null on cache miss or expiry.
+   */
+  private getCachedResponse(body: Record<string, unknown>): ChatCompletionResponse | null {
+    const key = JSON.stringify(body);
+    const entry = this.responseCache.get(key);
+    if (entry && Date.now() - entry.timestamp < this.CACHE_TTL_MS) {
+      return entry.response;
+    }
+    if (entry) this.responseCache.delete(key);
+    return null;
+  }
+
+  /**
+   * Store a successful response in the content-addressable cache. Evicts the
+   * oldest entry when the cache is full.
+   */
+  private setCachedResponse(body: Record<string, unknown>, response: ChatCompletionResponse): void {
+    if (this.responseCache.size >= this.MAX_CACHE_ENTRIES) {
+      const firstKey = this.responseCache.keys().next().value;
+      if (firstKey) this.responseCache.delete(firstKey);
+    }
+    const key = JSON.stringify(body);
+    this.responseCache.set(key, { response, timestamp: Date.now() });
+  }
+
+  /**
    * Core HTTP helper.  Sends a POST to `{BASE_URL}{path}`, maps HTTP errors
    * to typed `AppError` codes, and retries on 429 / 5xx with exponential
    * backoff (up to 3 retries).
@@ -216,15 +260,24 @@ class GroqAPI {
           await this._sleep(delayMs);
         }
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 120_000);
+
         const startTime = performance.now();
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(body),
-        });
+        let response: Response;
+        try {
+          response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
         const latencyMs = Math.round(performance.now() - startTime);
 
         // --- success -------------------------------------------------------

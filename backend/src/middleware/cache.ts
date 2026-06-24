@@ -2,23 +2,34 @@ import type { Request, Response, NextFunction } from 'express';
 
 interface CacheEntry {
   body: string;
+  statusCode: number;
   timestamp: number;
 }
 
 interface CacheOptions {
   ttl?: number;
+  negativeTtl?: number;
   key?: (req: Request) => string;
 }
 
 const store = new Map<string, CacheEntry>();
-const MAX_ENTRIES = 500;
+const MAX_ENTRIES = 10_000;
+const DEFAULT_TTL = 120; // seconds
+const DEFAULT_NEGATIVE_TTL = 15; // seconds for non-2xx responses
 
 function defaultKey(req: Request): string {
   return req.originalUrl;
 }
 
+function evictIfNeeded(): void {
+  while (store.size >= MAX_ENTRIES) {
+    const firstKey = store.keys().next().value;
+    if (firstKey) store.delete(firstKey);
+  }
+}
+
 export function cache(options?: CacheOptions) {
-  const { ttl = 60, key = defaultKey } = options ?? {};
+  const { ttl = DEFAULT_TTL, negativeTtl = DEFAULT_NEGATIVE_TTL, key = defaultKey } = options ?? {};
 
   return (req: Request, res: Response, next: NextFunction): void => {
     if (req.method !== 'GET') {
@@ -31,8 +42,10 @@ export function cache(options?: CacheOptions) {
 
     if (entry) {
       const age = (Date.now() - entry.timestamp) / 1000;
-      if (age < ttl) {
+      const effectiveTtl = entry.statusCode >= 200 && entry.statusCode < 300 ? ttl : negativeTtl;
+      if (age < effectiveTtl) {
         res.setHeader('X-Cache', 'HIT');
+        res.status(entry.statusCode);
         res.setHeader('Content-Type', 'application/json');
         res.send(entry.body);
         return;
@@ -45,19 +58,13 @@ export function cache(options?: CacheOptions) {
     res.json = (body: unknown) => {
       res.setHeader('X-Cache', 'MISS');
 
-      if (res.statusCode >= 200 && res.statusCode < 300) {
-        if (store.size >= MAX_ENTRIES) {
-          const firstKey = store.keys().next().value;
-          if (firstKey) {
-            store.delete(firstKey);
-          }
-        }
+      evictIfNeeded();
 
-        store.set(cacheKey, {
-          body: JSON.stringify(body),
-          timestamp: Date.now(),
-        });
-      }
+      store.set(cacheKey, {
+        body: JSON.stringify(body),
+        statusCode: res.statusCode,
+        timestamp: Date.now(),
+      });
 
       return originalJson(body);
     };

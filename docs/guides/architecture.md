@@ -163,10 +163,29 @@ User enters email -> NewsletterSubscribe (client component) -> POST /api/subscri
 | ----------------- | ------------------- | ---------- | -------------------- | --------------------- |
 | CDN               | Edge cache          | 1 hour     | Cloudflare           | Purge on publish      |
 | Next.js ISR       | Static regeneration | 1-24 hours | Next.js build cache  | Revalidate on request |
-| Express in-memory | API response cache  | Variable   | Express memory cache | On data change        |
-| SQLite (Prisma)   | Query cache         | 10 minutes | Database             | Automatic             |
+| Express in-memory | API response cache  | Variable   | LRU (10K entries)    | On data change        |
+| SQLite (Prisma)   | Query cache         | 10 minutes | Database (WAL mode)  | Automatic             |
+| Groq API          | Response cache      | 1 hour     | In-memory (500 cap)  | On cache expiry       |
 
-### 3.2 Cache Invalidation Rules
+### 3.2 Cache Enhancements (Phase 16)
+
+| Enhancement                    | Description                                                                |
+| ------------------------------ | -------------------------------------------------------------------------- |
+| **LRU eviction**               | Cache middleware uses LRU (Least Recently Used) eviction, up from 500 FIFO |
+| **10K entry capacity**         | Increased cache capacity from 500 to 10,000 entries                        |
+| **Negative caching**           | Empty result sets cached for 15 seconds to prevent thundering herds        |
+| **Default TTL 120s**           | Standard response TTL set to 120 seconds                                   |
+| **Sitemap 24h cache**          | Sitemap route uses `cache({ ttl: 86400 })` middleware                      |
+| **RSS 30min cache**            | RSS feed route uses `cache({ ttl: 1800 })` middleware                      |
+| **Groq timeout 120s**          | AbortController with 120s timeout for Groq API calls                       |
+| **Groq content-addressable**   | Response deduplication with 1hr TTL and 500 entry cap                      |
+| **Global request timeout 30s** | Express middleware returns 503 on requests exceeding 30 seconds            |
+| **Prisma WAL mode**            | `PRAGMA journal_mode=WAL` and `PRAGMA busy_timeout=5000` on connect        |
+| **CORS config**                | `cors({ origin: config.corsOrigin || 'http://localhost:3000' })`           |
+| **Fetch caching (frontend)**   | `next: { revalidate }` on all fetch calls (5min articles, 1min detail)    |
+| **React.cache() dedup**        | `cache()` from react deduplicates `getArticleBySlug()` across SSR passes   |
+
+### 3.3 Cache Invalidation Rules
 
 | Event                  | Invalidated Caches                                          |
 | ---------------------- | ----------------------------------------------------------- |
@@ -224,13 +243,18 @@ User enters email -> NewsletterSubscribe (client component) -> POST /api/subscri
 
 ### 5.3 Performance Optimization
 
-| Technique             | Implementation                        | Impact                             |
-| --------------------- | ------------------------------------- | ---------------------------------- |
-| Next.js ISR           | Static regeneration for article pages | Near-zero latency for cached pages |
-| Cloudflare caching    | Edge cache for static assets          | 50% reduced origin load            |
-| Image WebP conversion | Sharp/next/image auto-convert         | 60% smaller file sizes             |
-| Prisma query caching  | Strategic database indexes            | 40% faster queries                 |
-| Response compression  | Express compression middleware        | Reduced bandwidth                  |
+| Technique                    | Implementation                                    | Impact                             |
+| ---------------------------- | ------------------------------------------------ | ---------------------------------- |
+| Next.js ISR                  | Static regeneration for article pages            | Near-zero latency for cached pages |
+| Cloudflare caching           | Edge cache for static assets                     | 50% reduced origin load            |
+| Image WebP conversion        | Sharp/next/image auto-convert                    | 60% smaller file sizes             |
+| Prisma query caching         | Strategic database indexes                       | 40% faster queries                 |
+| Response compression         | Express compression middleware                   | Reduced bandwidth                  |
+| LRU cache eviction           | 10K entry LRU cache (was 500 FIFO)               | Reduced cache churn, better hit rate|
+| Prisma WAL mode              | `PRAGMA journal_mode=WAL` on connect             | Faster concurrent writes           |
+| Fetch caching (frontend)     | `next: { revalidate }` on all API fetch calls    | Reduced backend load               |
+| React.cache() dedup          | `cache()` from react for SSR data deduplication  | Fewer duplicate DB queries         |
+| Request timeout              | 30s global timeout middleware, 120s Groq timeout | Prevents hung connections          |
 
 ---
 
@@ -293,9 +317,113 @@ Visitor loads article → Next.js page → GET /api/track?article_id=X
 
 **Why daily aggregation?** Real-time per-click analytics is overkill for a programmatic SEO blog. Daily granularity is sufficient for trend analysis and article performance comparison. The unique constraint on `(articleId, date)` enables upsert semantics — subsequent views on the same day increment the counter rather than creating new rows.
 
+### 6.6 Site Settings Management
+
+Site settings are managed through a **key-value store** (`SiteSetting` Prisma model) backed by a dedicated `SiteSettingsService`. This replaces editing `.env` for non-sensitive configuration like ad codes and HTML injections.
+
+**Data model:**
+
+```prisma
+model SiteSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@map("site_settings")
+}
+```
+
+**Service interface (`SiteSettingsService`):**
+
+| Method                               | Description                                  |
+| ------------------------------------ | -------------------------------------------- |
+| `getAllSettings()`                   | Returns all settings as a flat key-value map |
+| `updateSettings(settings)`           | Upserts provided settings, returns updated  |
+
+**Settings fields stored:**
+
+| Key                | Purpose                                                    |
+| ------------------ | ---------------------------------------------------------- |
+| `head_html`        | HTML injected into `<head>` (analytics, meta tags)         |
+| `body_html`        | HTML injected after `<body>` (cookie banners, overlays)    |
+| `ad_header_banner` | 728x90 leaderboard ad code above the site header           |
+| `ad_sidebar_1`     | 300x250 ad in right sidebar (middle)                       |
+| `ad_sidebar_2`     | 300x250 ad in right sidebar (bottom)                       |
+| `ad_article_sidebar` | 300x250 ad on article page right sidebar                 |
+| `ad_in_article_1`  | 300x250 ad after ~3rd content block in article body        |
+| `ad_in_article_2`  | 300x250 ad after ~7th content block in article body        |
+
+**API design:**
+
+- `GET /api/settings` — public, unauthenticated, rate limited 30/min
+- `GET /api/admin/settings` — admin, bearer token required, 100/hour
+- `PUT /api/admin/settings` — admin, bearer token required, 100/hour
+
+**Frontend rendering:** The LayoutShell, Sidebar, and article page components fetch settings via the public endpoint and pass ad codes to the `AdSlot` component.
+
 ---
 
-## 7. Expansion Roadmap
+## 7. Layout Shell & Ad System Architecture
+
+### 7.1 LayoutShell
+
+The `LayoutShell` (`frontend/components/layout/LayoutShell.tsx`) is a **client component** that conditionally wraps all pages with public chrome (Header, Footer, CookieConsent). It uses `usePathname()` from Next.js to detect admin routes and suppress the public shell when inside the admin section.
+
+**Architecture:**
+
+```
+Root layout → LayoutShell {children}
+                ├── public route? (usePathname() starts with /admin)
+                │   ├── No  → render ad_header_banner → Header → children → Footer → CookieConsent
+                │   └── Yes → render children only (no ads, no header, no footer)
+```
+
+**Key behaviors:**
+
+- Admin routes (`/admin/*`) render only the admin layout shell — no public header, footer, or ads
+- Public routes render the full chrome with conditional ad slots
+- Header banner ad (`ad_header_banner`) renders above the site header, fetched from settings
+- The LayoutShell is a client component but wraps server component children
+
+### 7.2 Ad System Architecture
+
+The ad system uses the Site Settings key-value store to deliver customizable ad placements across the frontend, managed through the admin settings page.
+
+**6 ad slots:**
+
+| Slot                | Placement                              | Dimensions   |
+| ------------------- | -------------------------------------- | ------------ |
+| `ad_header_banner`  | Above site header (public pages)       | 728x90       |
+| `ad_sidebar_1`      | Right sidebar middle                   | 300x250      |
+| `ad_sidebar_2`      | Right sidebar bottom                   | 300x250      |
+| `ad_article_sidebar`| Article page right sidebar             | 300x250      |
+| `ad_in_article_1`   | Article body after ~3rd content block  | 300x250      |
+| `ad_in_article_2`   | Article body after ~7th content block  | 300x250      |
+
+**AdSlot component** (`frontend/components/ui/AdSlot.tsx`):
+
+- Accepts a `customHtml?: string | null` prop
+- When `customHtml` is provided, renders via `dangerouslySetInnerHTML`
+- When `customHtml` is empty/null, renders a placeholder box with "Ad" label
+- Falls back gracefully when ad codes are not configured
+
+**Data flow:**
+
+```
+Admin sets ad code in settings form
+  → PUT /api/admin/settings (stores in SiteSetting table)
+    → Frontend fetches GET /api/settings
+      → LayoutShell renders ad_header_banner
+      → Sidebar renders ad_sidebar_1, ad_sidebar_2
+      → Article page renders ad_article_sidebar, ad_in_article_1, ad_in_article_2
+```
+
+**In-article ad injection:** The article page uses a `splitBlocksWithAds()` helper that inserts ad slots at predetermined positions within the content block array. This avoids manual ad placement and ensures consistent spacing.
+
+---
+
+## 8. Expansion Roadmap
 
 ### Phase 1: Foundation (Month 1)
 
@@ -331,9 +459,9 @@ During Phase 1, the admin dashboard is available for monitoring article count, t
 
 ---
 
-## 8. Disaster Recovery
+## 9. Disaster Recovery
 
-### 7.1 Backup Strategy
+### 9.1 Backup Strategy
 
 | Component       | Frequency | Method              | Retention  |
 | --------------- | --------- | ------------------- | ---------- |
@@ -341,7 +469,7 @@ During Phase 1, the admin dashboard is available for monitoring article count, t
 | Source code     | On commit | Git repository      | Indefinite |
 | Cache files     | None      | Regenerable         | N/A        |
 
-### 7.2 Business Continuity
+### 9.2 Business Continuity
 
 | Risk            | Mitigation                                                            |
 | --------------- | --------------------------------------------------------------------- |
@@ -351,7 +479,7 @@ During Phase 1, the admin dashboard is available for monitoring article count, t
 
 ---
 
-## 9. Maintenance Schedule
+## 10. Maintenance Schedule
 
 | Task                             | Frequency | Owner          | Duration  |
 | -------------------------------- | --------- | -------------- | --------- |

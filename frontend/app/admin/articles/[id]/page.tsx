@@ -4,7 +4,7 @@ import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ArticleEditor from '@/components/admin/ArticleEditor';
 import LinkManager from '@/components/admin/LinkManager';
-import Button from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import {
   addLink,
   getAdminCategories,
@@ -37,7 +37,7 @@ export default function ArticleEditPage({ params }: { params: Promise<{ id: stri
           return;
         }
         setArticle(articleData.data || articleData);
-        setCategories(categoriesData.data || categoriesData || []);
+        setCategories(categoriesData.data?.categories || categoriesData?.categories || []);
       } catch (err) {
         setError('Failed to load article.');
       } finally {
@@ -99,7 +99,7 @@ export default function ArticleEditPage({ params }: { params: Promise<{ id: stri
         <p className="mb-4 text-sm text-gray-500">
           The article you are looking for does not exist.
         </p>
-        <Button variant="primary" onClick={() => router.push('/admin/articles')}>
+        <Button onClick={() => router.push('/admin/articles')}>
           Back to Articles
         </Button>
       </div>
@@ -110,7 +110,7 @@ export default function ArticleEditPage({ params }: { params: Promise<{ id: stri
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-white px-6 py-12">
         <p className="mb-4 text-sm text-red-600">{error}</p>
-        <Button variant="primary" onClick={() => router.push('/admin/articles')}>
+        <Button onClick={() => router.push('/admin/articles')}>
           Back to Articles
         </Button>
       </div>

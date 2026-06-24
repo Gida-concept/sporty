@@ -49,8 +49,8 @@ router.post(
   validate(addLinkSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const articleId = parseInt(String(req.params.id), 10);
-      if (isNaN(articleId)) {
+      const articleId = req.params.id as string;
+      if (!articleId) {
         throw new AppError('E012', 'Invalid article ID', 400);
       }
 
@@ -83,13 +83,13 @@ router.delete(
   rateLimiter,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const articleId = parseInt(String(req.params.id), 10);
-      if (isNaN(articleId)) {
+      const articleId = req.params.id as string;
+      if (!articleId) {
         throw new AppError('E012', 'Invalid article ID', 400);
       }
 
-      const linkId = parseInt(String(req.params.linkId), 10);
-      if (isNaN(linkId)) {
+      const linkId = req.params.linkId as string;
+      if (!linkId) {
         throw new AppError('E012', 'Invalid link ID', 400);
       }
 

@@ -78,8 +78,8 @@ router.put(
   validate(updateCategorySchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = parseInt(String(req.params.id), 10);
-      if (isNaN(id)) {
+      const id = req.params.id as string;
+      if (!id) {
         throw new AppError('E012', 'Invalid category ID', 400);
       }
 
@@ -107,13 +107,12 @@ router.delete(
   deleteLimiter,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = parseInt(String(req.params.id), 10);
-      if (isNaN(id)) {
+      const id = req.params.id as string;
+      if (!id) {
         throw new AppError('E012', 'Invalid category ID', 400);
       }
 
-      const reassignToParam = req.query.reassign_to as string | undefined;
-      const reassignToId = reassignToParam ? parseInt(reassignToParam, 10) : undefined;
+      const reassignToId = req.query.reassign_to as string | undefined;
 
       const categoryService = new CategoryService(prisma);
       await categoryService.delete(id, reassignToId);
