@@ -1,22 +1,19 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaLibSQL } from '@prisma/adapter-libsql';
+import { createClient } from '@libsql/client';
 
 function createPrismaClient(): PrismaClient {
-  const client = new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+  const libsql = createClient({
+    url: process.env.DATABASE_URL || '',
+    authToken: process.env.TURSO_AUTH_TOKEN,
   });
 
-  client.$connect()
-    .then(() => {
-      // WAL mode allows concurrent reads while writing — critical for high-traffic
-      client.$executeRawUnsafe('PRAGMA journal_mode=WAL');
-      // 5-second busy timeout so concurrent writes don't fail immediately
-      client.$executeRawUnsafe('PRAGMA busy_timeout=5000');
-    })
-    .catch((err) => {
-      console.error('[Prisma] Failed to connect:', err);
-    });
+  const adapter = new PrismaLibSQL(libsql);
 
-  return client;
+  return new PrismaClient({
+    adapter,
+    log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+  });
 }
 
 const prisma = createPrismaClient();
