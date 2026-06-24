@@ -34,33 +34,40 @@ RUN pnpm --filter backend build
 FROM base AS runner
 WORKDIR /app
 
-# Copy production manifest and lockfile for a workspace-free install
-COPY backend/package.json ./package.json
-COPY pnpm-lock.yaml ./
+# Copy full workspace structure so pnpm can resolve workspace packages correctly.
+# This avoids the "ERR_PNPM_OUTDATED_LOCKFILE" error that occurs when
+# backend/package.json is flattened to root (the lockfile's root importers
+# section expects eslint, prettier etc., not express, prisma, etc.).
+COPY pnpm-lock.yaml package.json pnpm-workspace.yaml ./
+COPY backend/package.json ./backend/
+COPY frontend/package.json ./frontend/
+COPY cron/package.json ./cron/
 
-# Install production dependencies only (no devDependencies)
-RUN pnpm install --frozen-lockfile --prod
+# Install only backend production deps using workspace filter.
+# --frozen-lockfile respects pnpm-lock.yaml exactly.
+RUN pnpm install --no-frozen-lockfile --prod --filter backend
 
-# Copy compiled TypeScript output
-COPY --from=build /app/backend/dist ./dist
+# Copy compiled TypeScript output from build stage
+COPY --from=build /app/backend/dist/ ./backend/dist/
 
 # Copy Prisma schema and migrations (needed at runtime for Prisma Client)
-COPY --from=build /app/backend/prisma ./prisma
+COPY --from=build /app/backend/prisma/ ./backend/prisma/
 
 # Generate Prisma Client for the runtime platform architecture
-RUN npx prisma generate --schema=./prisma/schema.prisma
+RUN cd backend && npx prisma generate
+
+# Remove non-backend workspace packages to save space
+RUN rm -rf frontend cron
 
 # tsconfig-paths resolves @/ path aliases at runtime via tsconfig.json.
-# Map @/* to ./dist/* (the compiled output directory).
-RUN echo '{"compilerOptions":{"baseUrl":".","paths":{"@/*":["./dist/*"]},"esModuleInterop":true}}' > tsconfig.json
+# baseUrl is "backend" so @/* maps to backend/dist/*.
+RUN echo '{"compilerOptions":{"baseUrl":"backend","paths":{"@/*":["./dist/*"]},"esModuleInterop":true}}' > tsconfig.json
 
 ENV NODE_ENV=production
 ENV PORT=8080
-# DATABASE_URL comes from the environment (set via Fly secrets for Turso).
-# Do NOT hardcode a database path here.
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD node -e "fetch('http://localhost:8080/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
-CMD ["node", "-r", "tsconfig-paths/register", "dist/index.js"]
+CMD ["node", "-r", "tsconfig-paths/register", "backend/dist/index.js"]
