@@ -46,7 +46,7 @@ COPY cron/package.json ./cron/
 
 # Install only backend production deps using workspace filter.
 # --frozen-lockfile respects pnpm-lock.yaml exactly.
-RUN pnpm install --no-frozen-lockfile --prod --filter backend
+RUN pnpm install --no-frozen-lockfile --filter backend
 
 # Copy compiled TypeScript output from build stage
 COPY --from=build /app/backend/dist/ ./backend/dist/
