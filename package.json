@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "concurrently -n frontend,backend -c cyan,green \"pnpm --filter frontend dev\" \"pnpm --filter backend dev\"",
     "build": "pnpm --filter backend build && pnpm --filter frontend build",
+    "vercel-build": "pnpm --filter frontend build",
     "start": "concurrently -n frontend,backend -c cyan,green \"pnpm --filter frontend start\" \"pnpm --filter backend start\"",
     "test": "pnpm --filter backend test",
     "test:e2e": "pnpm --filter frontend test:e2e",

@@ -1,4 +1,4 @@
-import { config } from '@/config/index.js';
+import SiteSettingsService from '@/services/SiteSettingsService.js';
 import { PrismaClient, Article } from '@prisma/client';
 
 // ---------------------------------------------------------------------------
@@ -187,10 +187,11 @@ ${urls.join('\n')}
   }
 
   /**
-   * Resolve the site base URL from config, stripping any trailing slash.
+   * Resolve the site base URL from SiteSettingsService, stripping any trailing slash.
    */
-  private getBaseUrl(): string {
-    return (config.siteUrl ?? 'http://localhost:3000').replace(/\/+$/, '');
+  private async getBaseUrl(): Promise<string> {
+    const ss = SiteSettingsService.getInstance();
+    return (await ss.getSiteUrl()).replace(/\/+$/, '');
   }
 
   /**

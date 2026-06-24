@@ -8,7 +8,7 @@ const rateLimiter = createRateLimiter({ windowMs: 60000, max: 30 });
 // GET /api/settings — Public settings (ad codes, header/body HTML, no auth required)
 router.get('/', rateLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const service = new SiteSettingsService();
+    const service = SiteSettingsService.getInstance();
     const settings = await service.getAllSettings();
     res.json({
       success: true,

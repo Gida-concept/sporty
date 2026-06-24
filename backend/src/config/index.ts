@@ -21,47 +21,25 @@ const _adminTokenResult = resolveAdminToken();
 export const adminTokenIsFromEnv = _adminTokenResult.fromEnv;
 
 export interface AppConfig {
-  // Server
+  // Server (startup-only, not admin-configurable)
   port: number;
   nodeEnv: string;
-  siteUrl: string;
-  corsOrigin: string;
 
-  // Database
+  // Database (connection string, not admin-configurable)
   databaseUrl: string;
 
-  // APIs
+  // External API keys (secrets — stay in .env)
   serpApiKey: string;
   groqApiKey: string;
 
-  // Google Indexing API
+  // Google Indexing API (tied to secret credentials)
   googleIndexingEnabled: boolean;
   googleServiceAccountEmail: string;
   googlePrivateKey: string;
 
-  // Auth
+  // Auth secrets — stay in .env
   adminToken: string;
   webhookSecret: string;
-
-  // Content
-  defaultCategory: string;
-  maxGenerationAttempts: number;
-  minWordCount: number;
-
-  // Cache
-  cacheTtlSeconds: number;
-
-  // Rate Limiting
-  rateLimitWindowMs: number;
-  rateLimitMaxRequests: number;
-  adminRateLimitMaxRequests: number;
-  generateRateLimitMaxRequests: number;
-
-  // Cron
-  cronEnabled: boolean;
-
-  // Logging
-  logLevel: string;
 }
 
 function envString(key: string, defaultValue?: string): string {
@@ -81,8 +59,6 @@ function envBool(key: string, defaultValue: boolean): boolean {
 export const config: AppConfig = {
   port: envInt('PORT', 3001),
   nodeEnv: envString('NODE_ENV', 'development'),
-  siteUrl: envString('SITE_URL', 'http://localhost:3000'),
-  corsOrigin: envString('CORS_ORIGIN', 'http://localhost:3000'),
 
   databaseUrl: envString('DATABASE_URL', 'file:./dev.db'),
 
@@ -95,20 +71,6 @@ export const config: AppConfig = {
 
   adminToken: _adminTokenResult.token,
   webhookSecret: envString('WEBHOOK_SECRET', 'dev-webhook-secret'),
-
-  defaultCategory: envString('DEFAULT_CATEGORY', 'sports'),
-  maxGenerationAttempts: envInt('MAX_GENERATION_ATTEMPTS', 3),
-  minWordCount: envInt('MIN_WORD_COUNT', 800),
-
-  cacheTtlSeconds: envInt('CACHE_TTL_SECONDS', 300),
-
-  rateLimitWindowMs: envInt('RATE_LIMIT_WINDOW_MS', 900000),
-  rateLimitMaxRequests: envInt('RATE_LIMIT_MAX_REQUESTS', 100),
-  adminRateLimitMaxRequests: envInt('ADMIN_RATE_LIMIT_MAX_REQUESTS', 30),
-  generateRateLimitMaxRequests: envInt('GENERATE_RATE_LIMIT_MAX_REQUESTS', 5),
-
-  cronEnabled: envBool('CRON_ENABLED', true),
-  logLevel: envString('LOG_LEVEL', 'info'),
 };
 
 export function validateConfig(): void {

@@ -1,4 +1,4 @@
-import { config } from '@/config/index.js';
+import SiteSettingsService from '@/services/SiteSettingsService.js';
 import { PrismaClient, Article } from '@prisma/client';
 
 // ---------------------------------------------------------------------------
@@ -61,7 +61,8 @@ class RSSFeed {
   async generateFeed(articles?: Article[], options?: FeedOptions): Promise<string> {
     const items = articles ?? (await this.fetchArticles(options?.limit));
 
-    const siteUrl = config.siteUrl.replace(/\/+$/, '');
+    const ss = SiteSettingsService.getInstance();
+    const siteUrl = (await ss.getSiteUrl()).replace(/\/+$/, '');
     const feedUrl = `${siteUrl}/rss.xml`;
 
     const now = new Date();

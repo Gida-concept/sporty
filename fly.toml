@@ -1,4 +1,8 @@
-# fly.toml — GameDayWire Backend
+# fly.toml -- GameDayWire Backend
+# Deploy: fly deploy
+# Set secrets: fly secrets set SERPAPI_KEY=... GROQ_API_KEY=... ADMIN_TOKEN=... WEBHOOK_SECRET=...
+# Database (Turso): fly secrets set DATABASE_URL="libsql://your-db.turso.io" TURSO_AUTH_TOKEN="your_token"
+
 app = "gamedaywire-api"
 
 [build]
@@ -7,6 +11,9 @@ app = "gamedaywire-api"
 [env]
   NODE_ENV = "production"
   PORT = "8080"
+  # DATABASE_URL must be set via fly secrets set (Turso remote database)
+  # Do NOT put the connection string or auth token in this file.
+  # See docs/turso-setup.md for setup instructions.
 
 [[services]]
   internal_port = 8080
@@ -19,3 +26,6 @@ app = "gamedaywire-api"
   [[services.ports]]
     handlers = ["tls", "http"]
     port = 443
+
+# NOTE: No [[mounts]] section -- Turso (libSQL) is the database, not SQLite on a Fly Volume.
+# The DATABASE_URL and TURSO_AUTH_TOKEN are set via fly secrets.

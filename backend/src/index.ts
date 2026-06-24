@@ -6,6 +6,7 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import { config, validateConfig, adminTokenIsFromEnv } from '@/config/index.js';
 import { errorHandler } from '@/middleware/errorHandler.js';
+import SiteSettingsService from '@/services/SiteSettingsService.js';
 
 // Route imports
 import healthRoutes from '@/routes/health.js';
@@ -33,8 +34,12 @@ const app: express.Express = express();
 
 app.set('trust proxy', 1);
 
-// Middleware stack (order matters)
-app.use(cors({ origin: config.corsOrigin || 'http://localhost:3000' }));
+// CORS is configured with a dynamic origin that resolves from SiteSettingsService.
+// The actual origin value is loaded during async startup below.
+let corsOrigin = 'http://localhost:3000';
+app.use(cors({
+  origin: () => corsOrigin,
+}));
 app.use(helmet());
 
 const globalLimiter = rateLimit({
@@ -93,24 +98,30 @@ const isDirectRun =
   (scriptPath.endsWith('/index.ts') || scriptPath.endsWith('/index.js'));
 
 if (isDirectRun) {
-  startCron();
-  app.listen(config.port, () => {
-    console.log(`[GameDayWire] Backend running on port ${config.port}`);
-
-    if (!adminTokenIsFromEnv) {
-      const line = '═'.repeat(50);
-      console.log('');
-      console.log(`╔${line}╗`);
-      console.log(`║${'ADMIN LOGIN TOKEN'.padStart(33).padEnd(50)}║`);
-      console.log(`║${'  (auto-generated — not stored, save it now)'.padEnd(50)}║`);
-      console.log(`║${' '.repeat(50)}║`);
-      console.log(`║${`  Token: ${config.adminToken}`.padEnd(50)}║`);
-      console.log(`║${' '.repeat(50)}║`);
-      console.log(`║${'  Set ADMIN_TOKEN in .env for a permanent token'.padEnd(50)}║`);
-      console.log(`╚${line}╝`);
-      console.log('');
-    } else {
-      console.log('[GameDayWire] Admin login configured via ADMIN_TOKEN environment variable.');
+  // Async startup: load DB-backed settings before listening
+  (async () => {
+    try {
+      const settingsService = SiteSettingsService.getInstance();
+      corsOrigin = await settingsService.getCorsOrigin();
+    } catch (err) {
+      console.warn('[Startup] Could not load CORS origin from DB, using default:', (err as Error).message);
     }
-  });
+
+    startCron();
+    app.listen(config.port, () => {
+      console.log(`[GameDayWire] Backend running on port ${config.port}`);
+
+      if (!adminTokenIsFromEnv) {
+        const line = '='.repeat(50);
+        console.log('');
+        console.log(`ADMIN LOGIN TOKEN (auto-generated - not stored, save it now)`);
+        console.log(`  Token: ${config.adminToken}`);
+        console.log(`  Set ADMIN_TOKEN in .env for a permanent token`);
+        console.log(`  ${line}`);
+        console.log('');
+      } else {
+        console.log('[GameDayWire] Admin login configured via ADMIN_TOKEN environment variable.');
+      }
+    });
+  })();
 }

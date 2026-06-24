@@ -1,6 +1,7 @@
 import { config } from '@/config/index.js';
 import { AppError } from '@/middleware/errorHandler.js';
 import GoogleIndexingAPI from '@/lib/GoogleIndexingAPI.js';
+import SiteSettingsService from '@/services/SiteSettingsService.js';
 import { PrismaClient, Article } from '@prisma/client';
 
 /**
@@ -179,7 +180,8 @@ class Publisher {
       });
 
       // 5. Notify Google Indexing API if enabled
-      const baseUrl = config.siteUrl?.replace(/\/+$/, '') ?? 'https://gamedaywire.com';
+      const ss = SiteSettingsService.getInstance();
+      const baseUrl = (await ss.getSiteUrl()).replace(/\/+$/, '');
       const articleUrl = `${baseUrl}/article/${articleData.slug}`;
 
       if (config.googleIndexingEnabled) {

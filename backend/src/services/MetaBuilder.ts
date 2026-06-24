@@ -1,4 +1,4 @@
-import { config } from '@/config/index.js';
+import SiteSettingsService from '@/services/SiteSettingsService.js';
 
 // ---------------------------------------------------------------------------
 // MetaBuilder
@@ -120,13 +120,14 @@ class MetaBuilder {
    * Generate Open Graph meta tags for an article.
    * Returns an object with standard og: properties.
    */
-  generateOgTags(article: {
+  async generateOgTags(article: {
     title: string;
     description?: string | null;
     slug: string;
     featuredImage?: string | null;
-  }): Record<string, string> {
-    const baseUrl = config.siteUrl.replace(/\/+$/, '');
+  }): Promise<Record<string, string>> {
+    const ss = SiteSettingsService.getInstance();
+    const baseUrl = (await ss.getSiteUrl()).replace(/\/+$/, '');
 
     return {
       'og:title': article.title,
@@ -142,13 +143,14 @@ class MetaBuilder {
    * Generate Twitter Card meta tags for an article.
    * Returns an object with standard twitter: properties.
    */
-  generateTwitterCard(article: {
+  async generateTwitterCard(article: {
     title: string;
     description?: string | null;
     slug: string;
     featuredImage?: string | null;
-  }): Record<string, string> {
-    const baseUrl = config.siteUrl.replace(/\/+$/, '');
+  }): Promise<Record<string, string>> {
+    const ss = SiteSettingsService.getInstance();
+    const baseUrl = (await ss.getSiteUrl()).replace(/\/+$/, '');
 
     return {
       'twitter:card': 'summary_large_image',
@@ -163,8 +165,9 @@ class MetaBuilder {
    * Generate the canonical URL for an article.
    * Strips trailing slash from siteUrl before appending the slug path.
    */
-  generateCanonical(slug: string): string {
-    const baseUrl = config.siteUrl.replace(/\/+$/, '');
+  async generateCanonical(slug: string): Promise<string> {
+    const ss = SiteSettingsService.getInstance();
+    const baseUrl = (await ss.getSiteUrl()).replace(/\/+$/, '');
     return `${baseUrl}/article/${slug}`;
   }
 }

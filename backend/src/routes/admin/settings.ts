@@ -9,7 +9,7 @@ const rateLimiter = createRateLimiter({ windowMs: 3600000, max: 100 });
 // GET /api/admin/settings
 router.get('/', adminAuth, rateLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const service = new SiteSettingsService();
+    const service = SiteSettingsService.getInstance();
     const settings = await service.getAllSettings();
     res.json({ success: true, data: settings, timestamp: new Date().toISOString() });
   } catch (err) { next(err); }
@@ -18,7 +18,7 @@ router.get('/', adminAuth, rateLimiter, async (req: Request, res: Response, next
 // PUT /api/admin/settings
 router.put('/', adminAuth, rateLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const service = new SiteSettingsService();
+    const service = SiteSettingsService.getInstance();
     await service.updateSettings(req.body);
     const settings = await service.getAllSettings();
     res.json({ success: true, data: settings, timestamp: new Date().toISOString() });
