@@ -3,7 +3,7 @@
 # Set secrets: fly secrets set SERPAPI_KEY=... GROQ_API_KEY=... ADMIN_TOKEN=... WEBHOOK_SECRET=...
 # Database (Turso): fly secrets set DATABASE_URL="libsql://your-db.turso.io" TURSO_AUTH_TOKEN="your_token"
 
-app = "gamedaywire-api"
+app = "gamedaywire"
 
 [build]
   dockerfile = "Dockerfile"
