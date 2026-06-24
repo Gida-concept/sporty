@@ -55,7 +55,7 @@ COPY --from=build /app/backend/dist/ ./backend/dist/
 COPY --from=build /app/backend/prisma/ ./backend/prisma/
 
 # Generate Prisma Client for the runtime platform architecture
-RUN cd backend && npx prisma generate
+RUN cd backend && ./node_modules/.bin/prisma generate
 
 # Remove non-backend workspace packages to save space
 RUN rm -rf frontend cron
@@ -67,4 +67,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD node -e "fetch('http://localhost:8080/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
-CMD npx prisma migrate deploy --schema=backend/prisma/schema.prisma && node backend/dist/index.js
+CMD backend/node_modules/.bin/prisma migrate deploy --schema=backend/prisma/schema.prisma && node backend/dist/index.js
