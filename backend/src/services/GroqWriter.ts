@@ -1,5 +1,5 @@
-import { AppError } from '@/middleware/errorHandler.js';
-import GroqAPI from '@/lib/GroqAPI.js';
+import { AppError } from '../middleware/errorHandler.js';
+import GroqAPI from '../lib/GroqAPI.js';
 
 // ---------------------------------------------------------------------------
 // Types

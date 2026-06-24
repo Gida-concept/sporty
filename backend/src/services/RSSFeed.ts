@@ -1,4 +1,4 @@
-import SiteSettingsService from '@/services/SiteSettingsService.js';
+import SiteSettingsService from '../services/SiteSettingsService.js';
 import { PrismaClient, Article } from '@prisma/client';
 
 // ---------------------------------------------------------------------------

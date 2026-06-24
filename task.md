@@ -525,3 +525,69 @@ Migrated the database from SQLite on a Fly Volume to Turso (libSQL), a distribut
 
 ### Verification
 - [x] `pnpm --filter backend typecheck` — zero errors (pre-existing prisma.ts error also fixed)
+
+---
+
+## Completed — 2026-06-24 — Remove tsconfig-paths, Replace @/ Imports with Relative Imports
+
+### What Was Done
+Eliminated the `tsconfig-paths` runtime dependency entirely. All 42 backend source files using `@/` path aliases were rewritten with relative imports. The `tsconfig-paths` package was removed from `backend/package.json`. The Dockerfile was updated to remove the `-r tsconfig-paths/register` flag from the CMD and to delete the generated tsconfig.json that was created for path resolution at runtime.
+
+### Why
+`tsconfig-paths` crashes at runtime on Fly.io due to pnpm's module resolution not hoisting it properly in the Docker image. Since the compiled output in `dist/` mirrors `src/` structure, relative paths from the compiled file location work identically to the path alias imports.
+
+### Files Modified
+- `backend/src/index.ts` — 20 imports changed from `@/` to `./`
+- `backend/src/middleware/errorHandler.ts` — 1 import changed
+- `backend/src/middleware/auth.ts` — 1 import changed
+- `backend/src/middleware/adminAuth.ts` — 1 import changed
+- `backend/src/lib/SerpAPI.ts` — 2 imports changed
+- `backend/src/lib/GroqAPI.ts` — 2 imports changed
+- `backend/src/lib/GoogleIndexingAPI.ts` — 2 imports changed
+- `backend/src/services/KeywordMatrix.ts` — 3 imports changed
+- `backend/src/services/Publisher.ts` — 4 imports changed
+- `backend/src/services/GroqWriter.ts` — 2 imports changed
+- `backend/src/services/TrendFinder.ts` — 3 imports changed
+- `backend/src/services/Notification.ts` — 1 import changed
+- `backend/src/services/ContentRefresher.ts` — 1 import changed
+- `backend/src/services/TitleEngine.ts` — 2 imports changed
+- `backend/src/services/ContentGuide.ts` — 2 imports changed
+- `backend/src/services/MetaBuilder.ts` — 1 import changed
+- `backend/src/services/SiteSettingsService.ts` — 1 import changed
+- `backend/src/services/CategoryService.ts` — 1 import changed
+- `backend/src/services/LinkService.ts` — 1 import changed
+- `backend/src/services/SitemapManager.ts` — 1 import changed
+- `backend/src/services/ArticleBuilder.ts` — 1 import changed
+- `backend/src/services/SERPTracker.ts` — 1 import changed
+- `backend/src/services/AnalyticsService.ts` — 1 import changed
+- `backend/src/services/AdminService.ts` — 1 import changed
+- `backend/src/services/RSSFeed.ts` — 1 import changed
+- `backend/src/routes/webhook.ts` — 5 imports changed
+- `backend/src/routes/trends.ts` — 3 imports changed
+- `backend/src/routes/track.ts` — 3 imports changed
+- `backend/src/routes/sitemap.ts` — 4 imports changed
+- `backend/src/routes/health.ts` — 2 imports changed
+- `backend/src/routes/settings.ts` — 2 imports changed
+- `backend/src/routes/generate.ts` — 3 imports changed
+- `backend/src/routes/rss.ts` — 4 imports changed
+- `backend/src/routes/articles.ts` — 3 imports changed
+- `backend/src/routes/keywords.ts` — 3 imports changed
+- `backend/src/routes/admin/stats.ts` — 4 imports changed
+- `backend/src/routes/admin/settings.ts` — 3 imports changed
+- `backend/src/routes/admin/links.ts` — 6 imports changed
+- `backend/src/routes/admin/categories.ts` — 6 imports changed
+- `backend/src/routes/admin/auth.ts` — 3 imports changed
+- `backend/src/routes/admin/analytics.ts` — 4 imports changed
+- `backend/src/routes/admin/articles.ts` — 6 imports changed
+- `backend/package.json` — Removed `"tsconfig-paths": "^4.2.0"` from dependencies, removed `-r tsconfig-paths/register` from start script
+- `Dockerfile` — Removed `-r tsconfig-paths/register` from CMD, removed `RUN echo ... > tsconfig.json` line, updated header comment
+
+### Verification
+- [x] `pnpm --filter backend typecheck` — zero errors
+- [x] No `@/` imports remain in `backend/src/`
+- [x] No `tsconfig-paths` references remain in `backend/package.json` or `Dockerfile`
+- [x] No dangling references or broken import paths
+
+### Next Steps / Blockers
+- Run `pnpm install` to clean up `tsconfig-paths` from `pnpm-lock.yaml`
+- Consider also removing `baseUrl` and `paths` from `backend/tsconfig.json` since they are now unused

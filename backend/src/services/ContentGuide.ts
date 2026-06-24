@@ -1,5 +1,5 @@
-import { AppError } from '@/middleware/errorHandler.js';
-import SerpAPI, { SearchResult, NewsResult, RelatedQuestion } from '@/lib/SerpAPI.js';
+import { AppError } from '../middleware/errorHandler.js';
+import SerpAPI, { SearchResult, NewsResult, RelatedQuestion } from '../lib/SerpAPI.js';
 import {
   PrismaClient,
   Keyword as PrismaKeyword,

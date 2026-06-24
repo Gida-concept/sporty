@@ -1,6 +1,6 @@
-import { config } from '@/config/index.js';
-import { AppError } from '@/middleware/errorHandler.js';
-import SerpAPI, { TrendingNowResult } from '@/lib/SerpAPI.js';
+import { config } from '../config/index.js';
+import { AppError } from '../middleware/errorHandler.js';
+import SerpAPI, { TrendingNowResult } from '../lib/SerpAPI.js';
 import { PrismaClient, Trend } from '@prisma/client';
 
 // ---------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-import { AppError } from '@/middleware/errorHandler.js';
+import { AppError } from '../middleware/errorHandler.js';
 import { PrismaClient, Article } from '@prisma/client';
 
 // ---- Constants

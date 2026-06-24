@@ -1,8 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { createRateLimiter } from '@/middleware/rateLimiter.js';
-import { adminAuth } from '@/middleware/adminAuth.js';
-import AdminService from '@/services/AdminService.js';
-import prisma from '@/lib/prisma.js';
+import { createRateLimiter } from '../../middleware/rateLimiter.js';
+import { adminAuth } from '../../middleware/adminAuth.js';
+import AdminService from '../../services/AdminService.js';
+import prisma from '../../lib/prisma.js';
 
 const router: Router = Router();
 const rateLimiter = createRateLimiter({ windowMs: 3600000, max: 100 });

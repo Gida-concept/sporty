@@ -1,7 +1,7 @@
-import { config } from '@/config/index.js';
-import { AppError } from '@/middleware/errorHandler.js';
-import GoogleIndexingAPI from '@/lib/GoogleIndexingAPI.js';
-import SiteSettingsService from '@/services/SiteSettingsService.js';
+import { config } from '../config/index.js';
+import { AppError } from '../middleware/errorHandler.js';
+import GoogleIndexingAPI from '../lib/GoogleIndexingAPI.js';
+import SiteSettingsService from '../services/SiteSettingsService.js';
 import { PrismaClient, Article } from '@prisma/client';
 
 /**

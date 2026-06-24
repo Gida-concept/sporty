@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "npx prisma generate && npx tsc",
-    "start": "node -r tsconfig-paths/register dist/index.js",
+    "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src/",
@@ -21,7 +21,6 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
-    "tsconfig-paths": "^4.2.0",
     "express-rate-limit": "^7.4.0",
     "helmet": "^8.0.0",
     "morgan": "^1.10.0",

@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { createRateLimiter } from '@/middleware/rateLimiter.js';
-import SiteSettingsService from '@/services/SiteSettingsService.js';
+import { createRateLimiter } from '../middleware/rateLimiter.js';
+import SiteSettingsService from '../services/SiteSettingsService.js';
 
 const router: Router = Router();
 const rateLimiter = createRateLimiter({ windowMs: 60000, max: 30 });

@@ -1,5 +1,5 @@
 import { PrismaClient, Category } from '@prisma/client';
-import { AppError } from '@/middleware/errorHandler.js';
+import { AppError } from '../middleware/errorHandler.js';
 
 // ---------------------------------------------------------------------------
 // Types

@@ -1,4 +1,4 @@
-import { AppError } from '@/middleware/errorHandler.js';
+import { AppError } from '../middleware/errorHandler.js';
 import SEOOptimizer from './SEOOptimizer.js';
 import SchemaBuilder from './SchemaBuilder.js';
 // Local type stubs (Prisma types not yet available)

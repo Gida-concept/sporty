@@ -1,11 +1,11 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { createRateLimiter } from '@/middleware/rateLimiter.js';
-import { adminAuth } from '@/middleware/adminAuth.js';
-import { validate } from '@/middleware/validator.js';
-import { AppError } from '@/middleware/errorHandler.js';
-import AdminService from '@/services/AdminService.js';
-import prisma from '@/lib/prisma.js';
+import { createRateLimiter } from '../../middleware/rateLimiter.js';
+import { adminAuth } from '../../middleware/adminAuth.js';
+import { validate } from '../../middleware/validator.js';
+import { AppError } from '../../middleware/errorHandler.js';
+import AdminService from '../../services/AdminService.js';
+import prisma from '../../lib/prisma.js';
 
 const router: Router = Router();
 const listLimiter = createRateLimiter({ windowMs: 3600000, max: 100 });

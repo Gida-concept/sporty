@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { createRateLimiter } from '@/middleware/rateLimiter.js';
-import { createSession } from '@/middleware/adminAuth.js';
-import { validate } from '@/middleware/validator.js';
+import { createRateLimiter } from '../../middleware/rateLimiter.js';
+import { createSession } from '../../middleware/adminAuth.js';
+import { validate } from '../../middleware/validator.js';
 
 const router: Router = Router();
 const loginLimiter = createRateLimiter({

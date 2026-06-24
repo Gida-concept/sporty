@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { config } from '@/config/index.js';
+import { config } from '../config/index.js';
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;

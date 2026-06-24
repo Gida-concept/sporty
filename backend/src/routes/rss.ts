@@ -1,8 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { createRateLimiter } from '@/middleware/rateLimiter.js';
-import { cache } from '@/middleware/cache.js';
-import RSSFeed from '@/services/RSSFeed.js';
-import prisma from '@/lib/prisma.js';
+import { createRateLimiter } from '../middleware/rateLimiter.js';
+import { cache } from '../middleware/cache.js';
+import RSSFeed from '../services/RSSFeed.js';
+import prisma from '../lib/prisma.js';
 
 const router: Router = Router();
 const rateLimiter = createRateLimiter({ windowMs: 3600000, max: 100 });

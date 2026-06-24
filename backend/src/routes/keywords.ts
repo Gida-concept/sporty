@@ -1,8 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { Prisma } from '@prisma/client';
-import { createRateLimiter } from '@/middleware/rateLimiter.js';
-import { cache } from '@/middleware/cache.js';
-import prisma from '@/lib/prisma.js';
+import { createRateLimiter } from '../middleware/rateLimiter.js';
+import { cache } from '../middleware/cache.js';
+import prisma from '../lib/prisma.js';
 
 // Category slug -> id cache (revalidated hourly)
 const categoryIdCache = new Map<string, string>();

@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { requireAuth } from '@/middleware/auth.js';
-import { createRateLimiter } from '@/middleware/rateLimiter.js';
-import { validate } from '@/middleware/validator.js';
+import { requireAuth } from '../middleware/auth.js';
+import { createRateLimiter } from '../middleware/rateLimiter.js';
+import { validate } from '../middleware/validator.js';
 import { z } from 'zod';
 
 const router: Router = Router();

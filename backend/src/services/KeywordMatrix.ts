@@ -1,6 +1,6 @@
-import { config } from '@/config/index.js';
-import { AppError } from '@/middleware/errorHandler.js';
-import SerpAPI, { KeywordData, RelatedSearch } from '@/lib/SerpAPI.js';
+import { config } from '../config/index.js';
+import { AppError } from '../middleware/errorHandler.js';
+import SerpAPI, { KeywordData, RelatedSearch } from '../lib/SerpAPI.js';
 import { PrismaClient, Keyword as PrismaKeyword, Trend } from '@prisma/client';
 
 /* ------------------------------------------------------------------ */

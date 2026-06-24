@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { createRateLimiter } from '@/middleware/rateLimiter.js';
-import prisma from '@/lib/prisma.js';
+import { createRateLimiter } from '../middleware/rateLimiter.js';
+import prisma from '../lib/prisma.js';
 
 const router: Router = Router();
 const healthLimiter = createRateLimiter({ windowMs: 3600000, max: 50 });

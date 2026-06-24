@@ -3,7 +3,7 @@
 #   - Compiled TypeScript (via tsc)
 #   - Prisma Client (generated)
 #   - Turso (libSQL) database connection (connection string from environment)
-#   - Runtime path alias resolution (via tsconfig-paths)
+#   - Relative imports (no tsconfig-paths needed)
 #
 # Database: Turso (libSQL). Set DATABASE_URL and TURSO_AUTH_TOKEN via Fly secrets:
 #   fly secrets set DATABASE_URL="libsql://your-db.turso.io" TURSO_AUTH_TOKEN="your_token"
@@ -60,10 +60,6 @@ RUN cd backend && npx prisma generate
 # Remove non-backend workspace packages to save space
 RUN rm -rf frontend cron
 
-# tsconfig-paths resolves @/ path aliases at runtime via tsconfig.json.
-# baseUrl is "backend" so @/* maps to backend/dist/*.
-RUN echo '{"compilerOptions":{"baseUrl":"backend","paths":{"@/*":["./dist/*"]},"esModuleInterop":true}}' > tsconfig.json
-
 ENV NODE_ENV=production
 ENV PORT=8080
 EXPOSE 8080
@@ -71,4 +67,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD node -e "fetch('http://localhost:8080/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
-CMD ["node", "-r", "tsconfig-paths/register", "backend/dist/index.js"]
+CMD ["node", "backend/dist/index.js"]

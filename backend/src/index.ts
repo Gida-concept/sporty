@@ -4,30 +4,30 @@ import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
-import { config, validateConfig, adminTokenIsFromEnv } from '@/config/index.js';
-import { errorHandler } from '@/middleware/errorHandler.js';
-import SiteSettingsService from '@/services/SiteSettingsService.js';
+import { config, validateConfig, adminTokenIsFromEnv } from './config/index.js';
+import { errorHandler } from './middleware/errorHandler.js';
+import SiteSettingsService from './services/SiteSettingsService.js';
 
 // Route imports
-import healthRoutes from '@/routes/health.js';
-import trendsRoutes from '@/routes/trends.js';
-import keywordsRoutes from '@/routes/keywords.js';
-import articlesRoutes from '@/routes/articles.js';
-import sitemapRoutes from '@/routes/sitemap.js';
-import rssRoutes from '@/routes/rss.js';
-import generateRoutes from '@/routes/generate.js';
-import webhookRoutes from '@/routes/webhook.js';
-import trackRoutes from '@/routes/track.js';
-import settingsRoutes from '@/routes/settings.js';
+import healthRoutes from './routes/health.js';
+import trendsRoutes from './routes/trends.js';
+import keywordsRoutes from './routes/keywords.js';
+import articlesRoutes from './routes/articles.js';
+import sitemapRoutes from './routes/sitemap.js';
+import rssRoutes from './routes/rss.js';
+import generateRoutes from './routes/generate.js';
+import webhookRoutes from './routes/webhook.js';
+import trackRoutes from './routes/track.js';
+import settingsRoutes from './routes/settings.js';
 
 // Admin route imports
-import adminAuthRoutes from '@/routes/admin/auth.js';
-import adminStatsRoutes from '@/routes/admin/stats.js';
-import adminArticlesRoutes from '@/routes/admin/articles.js';
-import adminCategoriesRoutes from '@/routes/admin/categories.js';
-import adminAnalyticsRoutes from '@/routes/admin/analytics.js';
-import adminLinksRoutes from '@/routes/admin/links.js';
-import adminSettingsRoutes from '@/routes/admin/settings.js';
+import adminAuthRoutes from './routes/admin/auth.js';
+import adminStatsRoutes from './routes/admin/stats.js';
+import adminArticlesRoutes from './routes/admin/articles.js';
+import adminCategoriesRoutes from './routes/admin/categories.js';
+import adminAnalyticsRoutes from './routes/admin/analytics.js';
+import adminLinksRoutes from './routes/admin/links.js';
+import adminSettingsRoutes from './routes/admin/settings.js';
 // Cron scheduler import is done via dynamic import at startup to avoid
 // TypeScript resolving the cross-package dependency at compile time.
 // This keeps the backend build self-contained and prevents the Docker
