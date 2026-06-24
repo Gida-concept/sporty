@@ -48,11 +48,8 @@ COPY cron/package.json ./cron/
 # --frozen-lockfile respects pnpm-lock.yaml exactly.
 RUN pnpm install --no-frozen-lockfile --filter backend
 
-# Explicitly add prisma to backend workspace so the CLI binary is available at
-# backend/node_modules/.bin/prisma at runtime. This avoids npx downloading
-# the CLI fresh at each startup, which consumes ~150 MB RAM and triggers OOM
-# on resource-constrained Fly.io machines.
-RUN pnpm --filter backend add prisma@^6.0.0
+# Prisma is already a dependency in backend/package.json; the local binary
+# at backend/node_modules/.bin/prisma is installed by pnpm install above.
 
 # Copy compiled TypeScript output from build stage
 COPY --from=build /app/backend/dist/ ./backend/dist/
