@@ -20,7 +20,7 @@ FROM base AS deps
 WORKDIR /app
 COPY pnpm-lock.yaml package.json pnpm-workspace.yaml ./
 COPY backend/package.json ./backend/
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --no-frozen-lockfile
 
 # ---- Build (Prisma Client + TypeScript compilation) ----
 FROM base AS build
