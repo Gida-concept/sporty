@@ -67,4 +67,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD node -e "fetch('http://localhost:8080/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
-CMD ["node", "backend/dist/index.js"]
+CMD npx prisma migrate deploy --schema=backend/prisma/schema.prisma && node backend/dist/index.js
