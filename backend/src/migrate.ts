@@ -42,7 +42,9 @@ async function main() {
     const statements = sql
       .split(';')
       .map(s => s.trim())
-      .filter(s => s.length > 0 && !s.startsWith('--'));
+      .filter(s => s.length > 0)
+      .map(s => s.replace(/^--.*$/gm, '').trim())
+      .filter(s => s.length > 0);
 
     for (const stmt of statements) {
       try {
