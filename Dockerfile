@@ -1,4 +1,5 @@
 # GameDayWire Backend -- Multi-stage Dockerfile for Fly.io
+# Build: 2026-06-24-v2 — force fresh build with SiteSetting migration
 # Builds a minimal production image with:
 #   - Compiled TypeScript (via tsc)
 #   - Prisma Client (generated)
