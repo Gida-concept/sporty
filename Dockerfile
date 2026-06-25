@@ -1,14 +1,13 @@
 # GameDayWire Backend -- Multi-stage Dockerfile for Fly.io
-# Build: 2026-06-24-v2 — force fresh build with SiteSetting migration
+# Build: 2026-06-25-v1 — Supabase PostgreSQL migration
 # Builds a minimal production image with:
 #   - Compiled TypeScript (via tsc)
 #   - Prisma Client (generated)
-#   - Turso (libSQL) database connection (connection string from environment)
-#   - Relative imports (no tsconfig-paths needed)
+#   - Supabase PostgreSQL database connection (connection string from environment)
 #
-# Database: Turso (libSQL). Set DATABASE_URL and TURSO_AUTH_TOKEN via Fly secrets:
-#   fly secrets set DATABASE_URL="libsql://your-db.turso.io" TURSO_AUTH_TOKEN="your_token"
-# See docs/turso-setup.md for setup instructions.
+# Database: Supabase PostgreSQL. Set DATABASE_URL via Fly secrets:
+#   fly secrets set DATABASE_URL="postgresql://user:password@host:6543/postgres"
+# See docs/supabase-setup.md for setup instructions.
 
 # ---- Base ----
 FROM node:20-slim AS base
@@ -37,25 +36,18 @@ FROM base AS runner
 WORKDIR /app
 
 # Copy full workspace structure so pnpm can resolve workspace packages correctly.
-# This avoids the "ERR_PNPM_OUTDATED_LOCKFILE" error that occurs when
-# backend/package.json is flattened to root (the lockfile's root importers
-# section expects eslint, prettier etc., not express, prisma, etc.).
 COPY pnpm-lock.yaml package.json pnpm-workspace.yaml ./
 COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
 COPY cron/package.json ./cron/
 
 # Install only backend production deps using workspace filter.
-# --frozen-lockfile respects pnpm-lock.yaml exactly.
 RUN pnpm install --no-frozen-lockfile --filter backend
-
-# Prisma is already a dependency in backend/package.json; the local binary
-# at backend/node_modules/.bin/prisma is installed by pnpm install above.
 
 # Copy compiled TypeScript output from build stage
 COPY --from=build /app/backend/dist/ ./backend/dist/
 
-# Copy Prisma schema and migrations (needed at runtime for Prisma Client)
+# Copy Prisma schema and migrations (needed at runtime for prisma migrate deploy)
 COPY --from=build /app/backend/prisma/ ./backend/prisma/
 
 # Generate Prisma Client for the runtime platform architecture
@@ -71,4 +63,6 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD node -e "fetch('http://localhost:8080/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
-CMD node backend/dist/migrate.js && node backend/dist/index.js
+# Run migrations at startup, then start the server.
+# prisma migrate deploy applies pending migrations in a single, atomic step.
+CMD npx prisma migrate deploy --schema=backend/prisma/schema.prisma && node backend/dist/index.js

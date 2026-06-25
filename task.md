@@ -606,3 +606,30 @@ Created a new Prisma migration SQL file that adds the `SiteSetting` table and th
 - [x] Migration file exists at correct path with correct SQL
 - [x] `pnpm --filter backend typecheck` -- zero errors
 - [x] Committed and pushed to origin main
+
+---
+
+## Completed — 2026-06-25 — Supabase PostgreSQL Migration
+
+### What Was Done
+Migrated the database provider from Turso (libSQL/SQLite) to Supabase PostgreSQL. Removed all Turso-specific infrastructure code, dependencies, and documentation. Updated Prisma schema, Dockerfile, and runtime configuration for PostgreSQL.
+
+### Files Modified
+- `backend/prisma/schema.prisma` -- Changed `provider = "sqlite"` to `provider = "postgresql"`, removed `driverAdapters` preview feature, removed `relationMode`
+- `backend/src/lib/prisma.ts` -- Removed Turso adapter (`@prisma/adapter-libsql`, `@libsql/client`), replaced with plain `PrismaClient` instantiation
+- `Dockerfile` -- Changed CMD from `node backend/dist/migrate.js && node backend/dist/index.js` to `npx prisma migrate deploy --schema=backend/prisma/schema.prisma && node backend/dist/index.js`, updated comments for PostgreSQL/Supabase
+- `fly.toml` -- Updated comments to reference Supabase PostgreSQL instead of Turso
+- `.env.example` -- Updated Database section to reference Supabase PostgreSQL instead of Turso/libSQL
+- `backend/.env` -- Replaced Turso connection string comments with Supabase PostgreSQL connection string
+- `backend/package.json` -- Removed `@libsql/client` and `@prisma/adapter-libsql` dependencies
+
+### Files Deleted
+- `backend/src/migrate.ts` -- Custom Turso migration runner (no longer needed; `prisma migrate deploy` handles PostgreSQL natively)
+- `backend/prisma/migrations/` -- Old SQLite-format migration files (incompatible with PostgreSQL)
+- `docs/turso-setup.md` -- Obsolete Turso setup guide
+
+### Verification
+- [x] `pnpm install` -- lockfile updated, no Turso packages resolved
+- [x] `pnpm --filter backend build` -- Prisma client regenerated for PostgreSQL, TypeScript compiles clean
+- [x] `pnpm --filter backend typecheck` -- zero errors
+- [x] No remaining references to `libsql`, `turso`, or `@prisma/adapter-libsql` in `backend/` or `docs/`
