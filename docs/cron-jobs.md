@@ -156,7 +156,7 @@ Performs technical SEO checks:
 
 Performs system backup:
 
-1. Copy SQLite database file
+1. Dump PostgreSQL database via pg_dump
 2. Archive article assets and featured images
 3. Compress logs and cache metadata
 4. Store backup in backup directory

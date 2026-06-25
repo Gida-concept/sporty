@@ -8,7 +8,7 @@ GameDayWire is a **programmatic SEO blog engine** that autonomously generates sp
 
 **This is a greenfield project.** The full architecture is specified in `docs/` but no source code has been written yet. The documentation is the source of truth for all design decisions.
 
-**Stack:** Next.js 15 (App Router) + Tailwind CSS → Express.js + Prisma ORM + SQLite → SerpAPI + Groq API + Google Indexing API
+**Stack:** Next.js 15 (App Router) + Tailwind CSS → Express.js + Prisma ORM + PostgreSQL (Supabase) → SerpAPI + Groq API + Google Indexing API
 
 ## Build & Development Commands
 
@@ -86,7 +86,7 @@ sporty/
 ### Data Flow
 
 ```
-SerpAPI (Search Data) → Express Backend (Services) → SQLite (via Prisma)
+SerpAPI (Search Data) → Express Backend (Services) → PostgreSQL (via Prisma/Supabase)
                                 ↓
                           Groq API (AI Writer)
                                 ↓
@@ -109,9 +109,9 @@ SerpAPI (Search Data) → Express Backend (Services) → SQLite (via Prisma)
 
 - **No AI Slop** — Content Guide Engine forces original analysis, not article summaries. Every article requires 3+ specific data points from SerpAPI news results.
 - **Single API Source** — SerpAPI handles all search data (trends, SERP, news, keywords, PAA). No other search providers.
-- **SQLite-first, PostgreSQL-ready** — Prisma schema uses SQLite provider; switching to PostgreSQL is a one-line change.
+- **PostgreSQL (Supabase)** — Prisma schema uses PostgreSQL provider; Supabase hosts the production database.
 - **Quality Gates** — 7 hard-coded anti-slop rules block publishing of generic/banned content.
-- **Multi-layer caching** — Cloudflare CDN → Next.js ISR → Express in-memory → SQLite query cache.
+- **Multi-layer caching** — Cloudflare CDN → Next.js ISR → Express in-memory → PostgreSQL query cache.
 
 ### Database (9 Prisma Models)
 

@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { execSync } from 'node:child_process';
 import prisma from '../backend/src/lib/prisma.js';
 import type { CronResult, CronOptions } from './types.js';
 
@@ -14,15 +15,34 @@ export async function execute(options: CronOptions = {}): Promise<CronResult> {
       await fs.mkdir(BACKUP_DIR, { recursive: true });
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const dbPath = path.resolve(process.cwd(), 'prisma/dev.db');
+      const dbUrl = process.env.DATABASE_URL;
 
-      // Check if DB file exists and copy it
-      try {
-        await fs.access(dbPath);
-        const dbContent = await fs.readFile(dbPath);
-        await fs.writeFile(path.join(BACKUP_DIR, `dev-${timestamp}.db`), dbContent);
-      } catch {
-        // DB file not found at default path — try alternative locations
+      // Dump the PostgreSQL database via pg_dump
+      if (dbUrl && dbUrl.startsWith('postgresql://')) {
+        try {
+          const dumpPath = path.join(BACKUP_DIR, `sporty-${timestamp}.sql`);
+          execSync(`pg_dump "${dbUrl}" > "${dumpPath}"`, {
+            stdio: ['pipe', 'pipe', 'pipe'],
+            timeout: 120000, // 2 minute timeout for large databases
+          });
+        } catch {
+          // pg_dump may not be installed or DB unreachable — fallback to log
+          const fallbackPath = path.join(BACKUP_DIR, `sporty-${timestamp}.log`);
+          await fs.writeFile(
+            fallbackPath,
+            `pg_dump NOT AVAILABLE at ${new Date().toISOString()}. Install PostgreSQL client tools or use Supabase built-in backups.\n`,
+          );
+        }
+      } else {
+        // Fallback for SQLite-based local development
+        const dbPath = path.resolve(process.cwd(), 'prisma/dev.db');
+        try {
+          await fs.access(dbPath);
+          const dbContent = await fs.readFile(dbPath);
+          await fs.writeFile(path.join(BACKUP_DIR, `dev-${timestamp}.db`), dbContent);
+        } catch {
+          // DB file not found at default path — skip
+        }
       }
 
       // Rotate old backups

@@ -1,19 +1,28 @@
 # Database — GameDayWire
 
-Prisma ORM schema documentation for all 7 database models, including columns, types, constraints, relationships, indexes, and migration workflow.
+Prisma ORM schema documentation for all 9 database models, including columns, types, constraints, relationships, indexes, and migration workflow.
 
 ---
 
 ## Database Technology
 
-The system uses **SQLite** via Prisma ORM for development and small-scale production deployments. SQLite provides:
+The system uses **PostgreSQL** (via Supabase) as the production database. PostgreSQL provides:
 
-- **Zero configuration** — no database server to install or manage
-- **File-based storage** — the entire database is a single file (`backend/prisma/dev.db`)
-- **Portability** — the database travels with your codebase
-- **Performance** — excellent for single-server deployments
+- **Relational integrity** — Foreign keys, unique constraints, and cascading operations
+- **Performance** — Excellent query performance with proper indexing, connection pooling
+- **Scalability** — Read replicas, connection pooling via PgBouncer (Supabase)
+- **Managed service** — Supabase handles backups, updates, and high availability
+- **JSON support** — Native JSON/JSONB columns for flexible schema patterns
 
-For larger deployments, the Prisma schema can be switched to PostgreSQL by changing the `provider` in `schema.prisma` from `"sqlite"` to `"postgresql"` and running the migration.
+For local development, you can use the remote Supabase database directly or switch to SQLite by changing the Prisma schema `provider` to `"sqlite"` — the Prisma schema is designed to be compatible with either provider.
+
+**Supabase Connection:** Set `DATABASE_URL` in `.env` to your Supabase PostgreSQL connection string:
+
+```env
+DATABASE_URL="postgresql://user:password@host:6543/postgres?pgbouncer=true&connection_limit=5"
+```
+
+The connection uses PgBouncer (port 6543) for connection pooling in production. See `docs/supabase-setup.md` for full setup instructions.
 
 ---
 
@@ -580,14 +589,14 @@ pnpm seed
 
 ---
 
-## Switching to PostgreSQL
+## Switching to Local SQLite (Development)
 
-To switch from SQLite to PostgreSQL, change the Prisma schema provider:
+For local development without a remote database, you can switch to SQLite:
 
 ```prisma
 // In schema.prisma
 datasource db {
-  provider = "postgresql"  // was "sqlite"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 ```
@@ -595,7 +604,7 @@ datasource db {
 Then set your connection string in `.env`:
 
 ```env
-DATABASE_URL="postgresql://user:password@host:5432/dbname"
+DATABASE_URL="file:./dev.db"
 ```
 
 Run the migration:
@@ -603,3 +612,5 @@ Run the migration:
 ```bash
 npx prisma migrate dev --name init
 ```
+
+**Note:** The `file:` path is relative to `backend/prisma/`. The database file will be created at `backend/prisma/dev.db`.

@@ -60,7 +60,7 @@ export const config: AppConfig = {
   port: envInt('PORT', 3001),
   nodeEnv: envString('NODE_ENV', 'development'),
 
-  databaseUrl: envString('DATABASE_URL', 'file:./dev.db'),
+  databaseUrl: envString('DATABASE_URL', 'postgresql://localhost:5432/sporty'),
 
   serpApiKey: envString('SERPAPI_KEY'),
   groqApiKey: envString('GROQ_API_KEY'),

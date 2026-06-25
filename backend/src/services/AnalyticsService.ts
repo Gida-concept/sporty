@@ -107,7 +107,7 @@ class AnalyticsService {
    *
    * When granularity is 'day', each PageView row is returned as-is (one per
    * article-date). For 'week' and 'month', rows are aggregated via raw SQL
-   * using SQLite's strftime function.
+   * using PostgreSQL date formatting functions.
    */
   async getTimeSeries(options: TimeSeriesOptions): Promise<TimeSeriesPoint[]> {
     const { startDate, endDate, granularity, articleId } = options;
@@ -145,7 +145,7 @@ class AnalyticsService {
     }
 
     // Week or month granularity — aggregate using raw SQL
-    const dateFormat = granularity === 'week' ? '%Y-%W' : '%Y-%m';
+    const dateFormat = granularity === 'week' ? 'YYYY-IW' : 'YYYY-MM';
 
     const rows = await this.prisma.$queryRawUnsafe<
       Array<{
@@ -156,11 +156,11 @@ class AnalyticsService {
       }>
     >(
       `SELECT
-         strftime(?, date) AS dateBucket,
+         TO_CHAR(date, ?) AS dateBucket,
          SUM(pageviews) AS pageviews,
          SUM("uniqueVisitors") AS uniqueVisitors,
          AVG(avgTimeOnPage) AS avgTimeOnPage
-       FROM PageView
+       FROM "PageView"
        WHERE date >= ? AND date < ?
        ${articleId !== undefined ? 'AND articleId = ?' : ''}
        GROUP BY dateBucket

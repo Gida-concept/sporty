@@ -105,7 +105,7 @@ GET /api/health
     "database": {
       "status": "error",
       "latency_ms": 0,
-      "message": "Connection failed: SQLITE_ERROR"
+      "message": "Connection failed: DATABASE_ERROR"
     }
   },
   "alerts": [
@@ -569,7 +569,7 @@ grep -c "New subscriber" logs/frontend/app.log
 | Issue                 | Check                                | Resolution                                     |
 | --------------------- | ------------------------------------ | ---------------------------------------------- |
 | Health check critical | Run `curl localhost:3001/api/health` | Check service status, restart if needed        |
-| Database errors       | Check `logs/backend/error.log`       | Verify SQLite file permissions and disk space  |
+| Database errors       | Check `logs/backend/error.log`       | Verify database connection and credentials     |
 | SerpAPI errors        | Check API dashboard                  | Verify key and plan quota                      |
 | Groq errors           | Check Groq dashboard                 | Verify key and rate limits                     |
 | Cron not running      | Check `logs/cron/*.log`              | Run dry-run test, check node-cron registration |

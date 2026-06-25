@@ -253,7 +253,7 @@ While the system is fully automated, these triggers **pause for manual review** 
 
 ```
 Identify Stale Articles -> SerpAPI Fresh Data Fetch -> Content Refresh Guide -> GroqWriter Rewrite Sections
-Preserve URL & Backlinks <- Update SQLite dateModified <- SEO Re-optimize <- Link Re-inject
+Preserve URL & Backlinks <- Update PostgreSQL dateModified <- SEO Re-optimize <- Link Re-inject
 Re-ping Indexing API -> Cache Invalidate
 ```
 

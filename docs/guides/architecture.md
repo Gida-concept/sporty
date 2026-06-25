@@ -23,12 +23,12 @@ A fully automated, programmatic SEO-driven blog system that generates 2 original
 | **Full Automation**          | Trend discovery to keyword selection to content generation to publishing runs without human intervention |
 | **Human Override**           | Sensitive topics, quality failures, and algorithm updates trigger manual review                          |
 | **Single API Source**        | SerpAPI handles all search data needs — trends, SERP, news, keywords, PAA                                |
-| **Production-Grade Node.js** | Next.js SSR + Express API + Prisma/SQLite on any Node.js host                                            |
+| **Production-Grade Node.js** | Next.js SSR + Express API + Prisma/PostgreSQL on any Node.js host                                         |
 
 ### 1.4 Data Flow
 
 ```
-SerpAPI (Search Data) -> Express Backend (Services) -> SQLite (via Prisma)
+SerpAPI (Search Data) -> Express Backend (Services) -> PostgreSQL (via Prisma/Supabase)
                                 |
                                 v
                           Groq API (AI Writer)
@@ -52,10 +52,10 @@ SerpAPI (Search Data) -> Express Backend (Services) -> SQLite (via Prisma)
 | **Styling**         | Tailwind CSS                             | 4.x                      | Utility-first responsive design                       |
 | **Backend**         | Express.js                               | 4.x                      | REST API endpoints, business logic services           |
 | **Runtime**         | Node.js                                  | 20+ (22 LTS recommended) | JavaScript runtime for all processes                  |
-| **Database**        | SQLite via Prisma ORM                    | 6.x                      | File-based database (upgradeable to PostgreSQL)       |
+| **Database**        | PostgreSQL via Prisma ORM (Supabase)     | 6.x                      | Cloud-hosted relational database with connection pooling |
 | **Search Data**     | SerpAPI                                  | REST API v1              | Trends, SERP analysis, keyword validation, news, PAA  |
 | **AI Engine**       | Groq API                                 | REST API                 | Content generation via Llama 4 / Mixtral              |
-| **Cache**           | Next.js ISR + Express in-memory + SQLite | —                        | Multi-layer caching                                   |
+| **Cache**           | Next.js ISR + Express in-memory + PostgreSQL | —                    | Multi-layer caching                                   |
 | **CDN**             | Cloudflare                               | Free tier                | Global asset delivery, SSL, DDoS protection           |
 | **Cron**            | node-cron                                | —                        | Scheduled task execution (9 jobs)                     |
 | **Testing**         | Vitest + Playwright                      | —                        | Unit, integration, e2e testing                        |
@@ -68,7 +68,7 @@ SerpAPI (Search Data) -> Express Backend (Services) -> SQLite (via Prisma)
 | ------------------------ | ------------------------------------------------------------------------------------------------------------ |
 | **Next.js (App Router)** | Hybrid SSR/SSG/ISR for SEO-optimized pages, built-in image optimization, first-class TypeScript support      |
 | **Express.js**           | Lean, well-understood backend for API endpoints and cron orchestration; easy to deploy anywhere              |
-| **Prisma + SQLite**      | Zero-config database setup with type-safe queries; migration to PostgreSQL is a one-line change              |
+| **Prisma + PostgreSQL**  | Type-safe database access with Prisma ORM; production database hosted on Supabase with managed backups       |
 | **pnpm workspaces**      | Efficient monorepo management with shared TypeScript configs across frontend/backend/cron                    |
 | **SerpAPI (exclusive)**  | Single provider for all search data — trends, SERP, news, keywords, PAA — simplifies billing and rate limits |
 | **Groq API**             | Fast inference (~800 tokens/sec) with Llama 4, cost-effective at ~$5-10/month for 60 articles                |
@@ -164,7 +164,7 @@ User enters email -> NewsletterSubscribe (client component) -> POST /api/subscri
 | CDN               | Edge cache          | 1 hour     | Cloudflare           | Purge on publish      |
 | Next.js ISR       | Static regeneration | 1-24 hours | Next.js build cache  | Revalidate on request |
 | Express in-memory | API response cache  | Variable   | LRU (10K entries)    | On data change        |
-| SQLite (Prisma)   | Query cache         | 10 minutes | Database (WAL mode)  | Automatic             |
+| PostgreSQL (Prisma) | Query cache       | 10 minutes | Database             | Automatic             |
 | Groq API          | Response cache      | 1 hour     | In-memory (500 cap)  | On cache expiry       |
 
 ### 3.2 Cache Enhancements (Phase 16)
@@ -180,7 +180,7 @@ User enters email -> NewsletterSubscribe (client component) -> POST /api/subscri
 | **Groq timeout 120s**          | AbortController with 120s timeout for Groq API calls                       |
 | **Groq content-addressable**   | Response deduplication with 1hr TTL and 500 entry cap                      |
 | **Global request timeout 30s** | Express middleware returns 503 on requests exceeding 30 seconds            |
-| **Prisma WAL mode**            | `PRAGMA journal_mode=WAL` and `PRAGMA busy_timeout=5000` on connect        |
+| **Prisma connection pool**     | Supabase PgBouncer connection pooling on port 6543                          |
 | **CORS config**                | `cors({ origin: config.corsOrigin || 'http://localhost:3000' })`           |
 | **Fetch caching (frontend)**   | `next: { revalidate }` on all fetch calls (5min articles, 1min detail)    |
 | **React.cache() dedup**        | `cache()` from react deduplicates `getArticleBySlug()` across SSR passes   |
@@ -227,7 +227,7 @@ User enters email -> NewsletterSubscribe (client component) -> POST /api/subscri
 | Metric              | Capacity              | Bottleneck                 |
 | ------------------- | --------------------- | -------------------------- |
 | Articles/day        | 2 (configurable to 5) | Groq API rate limits       |
-| Concurrent visitors | ~500                  | Node.js event loop, SQLite |
+| Concurrent visitors | ~500                  | Node.js event loop, database |
 | API calls/day       | ~150                  | SerpAPI plan limits        |
 | Storage             | Unlimited             | Filesystem                 |
 
@@ -465,7 +465,7 @@ During Phase 1, the admin dashboard is available for monitoring article count, t
 
 | Component       | Frequency | Method              | Retention  |
 | --------------- | --------- | ------------------- | ---------- |
-| SQLite database | Daily     | `cp` or Prisma dump | 30 days    |
+| PostgreSQL database | Daily  | `pg_dump` or Prisma dump | 30 days  |
 | Source code     | On commit | Git repository      | Indefinite |
 | Cache files     | None      | Regenerable         | N/A        |
 

@@ -1,6 +1,6 @@
 # Deployment Guide — GameDayWire
 
-Complete deployment instructions for the Next.js + Express + SQLite stack across local development, Docker, and production environments.
+Complete deployment instructions for the Next.js + Express + PostgreSQL (Supabase) stack across local development, Docker, and production environments.
 
 ---
 
@@ -41,7 +41,7 @@ pnpm install
 # Copy environment file
 cp .env.example .env
 
-# Run database migration (creates SQLite database with all 7 tables)
+# Run database migration (creates all tables in PostgreSQL/Supabase)
 npx prisma migrate dev
 
 # Seed initial data (keywords, head terms)
@@ -147,7 +147,7 @@ services:
     ports:
       - '3001:3001'
     volumes:
-      - backend_data:/app/data # Persist SQLite database
+      - backend_data:/app/data # Persist database (if using local file DB)
       - backend_cache:/app/cache
       - backend_logs:/app/logs
     env_file:
@@ -206,23 +206,48 @@ volumes:
 
 ```dockerfile
 # backend/Dockerfile
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY backend/package.json ./backend/
-RUN corepack enable && pnpm install --frozen-lockfile
-COPY . .
-RUN npx prisma generate && pnpm --filter backend build
+# This is the actual Dockerfile used. See root Dockerfile for the full multi-stage build.
+FROM node:20-slim AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable && corepack prepare pnpm@9 --activate
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
-FROM node:20-alpine
+FROM base AS deps
 WORKDIR /app
-COPY --from=builder /app/backend/dist ./dist
-COPY --from=builder /app/backend/prisma ./prisma
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./
-RUN npx prisma generate
-EXPOSE 3001
-CMD ["node", "dist/index.js"]
+COPY pnpm-lock.yaml package.json pnpm-workspace.yaml ./
+COPY backend/package.json ./backend/
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --no-frozen-lockfile
+
+FROM base AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/backend/node_modules ./backend/node_modules
+COPY . .
+RUN pnpm --filter backend build
+
+FROM base AS runner
+WORKDIR /app
+COPY pnpm-lock.yaml package.json pnpm-workspace.yaml ./
+COPY backend/package.json ./backend/
+COPY frontend/package.json ./frontend/
+COPY cron/package.json ./cron/
+RUN pnpm install --no-frozen-lockfile --filter backend
+COPY --from=build /app/backend/dist/ ./backend/dist/
+COPY --from=build /app/backend/prisma/ ./backend/prisma/
+RUN cd backend && ./node_modules/.bin/prisma generate
+RUN rm -rf frontend cron
+ENV NODE_ENV=production
+ENV PORT=8080
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD node -e "fetch('http://localhost:8080/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
+CMD npx prisma migrate deploy --schema=backend/prisma/schema.prisma && node backend/dist/index.js
+```
+
+**Database:** Set `DATABASE_URL` via environment variable (Fly secrets for production):
+```bash
+fly secrets set DATABASE_URL="postgresql://user:password@host:6543/postgres"
 ```
 
 ### 3.3 Dockerfile — Frontend
@@ -260,8 +285,8 @@ docker-compose logs -f
 # Stop all services
 docker-compose down
 
-# Backup the SQLite database
-docker cp $(docker-compose ps -q backend):/app/data/dev.db ./backups/dev.db
+# Backup the PostgreSQL database
+pg_dump "$DATABASE_URL" > ./backups/prod-$(date +%Y%m%d).sql
 ```
 
 ---
@@ -494,7 +519,7 @@ The `.env` file contains all configuration for the system. Below is the complete
 
 | Variable                         | Required | Default                   | Purpose                                           |
 | -------------------------------- | -------- | ------------------------- | ------------------------------------------------- |
-| `DATABASE_URL`                   | Yes      | `file:./dev.db`           | SQLite database path (Prisma)                     |
+| `DATABASE_URL`                   | Yes      | `postgresql://...`        | PostgreSQL connection string (Supabase)              |
 | `SERPAPI_KEY`                    | Yes      | —                         | SerpAPI key for search data                       |
 | `GROQ_API_KEY`                   | Yes      | —                         | Groq API key for AI generation                    |
 | `GROQ_MODEL`                     | No       | `llama4-70b`              | Groq model for content generation                 |
@@ -594,18 +619,15 @@ trendMonitor({ dryRun: true }).then(console.log).catch(console.error);
 ### 6.6 Database Verification
 
 ```bash
-# Check that the SQLite database exists
-ls -la backend/prisma/dev.db
-
-# Verify tables exist
+# Check that PostgreSQL is reachable
 node -e "
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 async function check() {
-  const tables = await prisma.\$queryRawUnsafe(
-    \"SELECT name FROM sqlite_master WHERE type='table' ORDER BY name\"
+  const result = await prisma.\$queryRawUnsafe(
+    \"SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name\"
   );
-  console.log('Tables:', tables.map(t => t.name).join(', '));
+  console.log('Tables:', result.map(t => t.table_name).join(', '));
   await prisma.\$disconnect();
 }
 check();
@@ -619,8 +641,8 @@ check();
 ### 7.1 Pre-Deployment Preparation
 
 ```bash
-# Back up the SQLite database
-cp backend/prisma/dev.db backend/prisma/dev.db.pre-deploy
+# Back up the PostgreSQL database
+pg_dump "$DATABASE_URL" > backend/prisma/db.pre-deploy.sql
 
 # Back up the current build
 tar -czf pre-deploy-backup.tar.gz --exclude='node_modules' --exclude='.next' --exclude='dist' .
@@ -646,8 +668,11 @@ pm2 reload ecosystem.config.js
 **Scenario B: Files and Database Changes**
 
 ```bash
-# Restore database
-cp backend/prisma/dev.db.pre-deploy backend/prisma/dev.db
+# Restore database (if migration introduced issues)
+psql "$DATABASE_URL" < backend/prisma/db.pre-deploy.sql
+
+# Revert Prisma migration
+npx prisma migrate resolve --rolled-back "migration_name"
 
 # Regenerate Prisma client
 npx prisma generate
@@ -682,7 +707,7 @@ pm2 restart sporty-backend
 - [ ] `.env` is in `.gitignore` (never committed)
 - [ ] `node_modules/` is not web-accessible
 - [ ] `prisma/` directory is not web-accessible
-- [ ] `data/` (SQLite database) is not web-accessible
+- [ ] `data/` (local database) is not web-accessible
 - [ ] `cache/` directory is not web-accessible
 - [ ] `logs/` directory is not web-accessible
 
@@ -731,7 +756,7 @@ console.log('Total pageviews:', j.data.total_pageviews);
 
 ### 8.4 Database Security
 
-- [ ] SQLite file permissions set to `600` in production
-- [ ] Database file stored outside the web root
+- [ ] PostgreSQL connection uses SSL (enforced by Supabase)
+- [ ] Database credentials stored only in `.env` / Fly secrets
 - [ ] Regular backups configured (see [cron-jobs.md](cron-jobs.md))
 ```

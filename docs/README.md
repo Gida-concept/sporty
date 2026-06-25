@@ -6,10 +6,10 @@
 ![Next.js](https://img.shields.io/badge/Next.js-15.x-000000?logo=next.js)
 ![Express](https://img.shields.io/badge/Express-4.x-000000?logo=express)
 ![Prisma](https://img.shields.io/badge/Prisma-6.x-2D3748?logo=prisma)
-![SQLite](https://img.shields.io/badge/SQLite-3.x-003B57?logo=sqlite)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?logo=postgresql)
 ![License](https://img.shields.io/badge/License-Proprietary-red)
 
-GameDayWire is a fully automated, programmatic SEO blog engine that discovers trending sports and entertainment topics, validates them against real search data, generates original AI content through a structured **Content Guide Engine**, optimizes it for Rank Math SEO standards, and publishes to a Next.js frontend — all without human intervention. The system runs on **Next.js 15 (App Router)** with **Tailwind CSS** for the frontend and **Express.js + Prisma ORM + SQLite** for the backend, using **SerpAPI** for search data and **Groq API (Llama 4 / Mixtral)** for AI content generation, fronted by **Cloudflare CDN**.
+GameDayWire is a fully automated, programmatic SEO blog engine that discovers trending sports and entertainment topics, validates them against real search data, generates original AI content through a structured **Content Guide Engine**, optimizes it for Rank Math SEO standards, and publishes to a Next.js frontend — all without human intervention. The system runs on **Next.js 15 (App Router)** with **Tailwind CSS** for the frontend and **Express.js + Prisma ORM + PostgreSQL (Supabase)** for the backend, using **SerpAPI** for search data and **Groq API (Llama 4 / Mixtral)** for AI content generation, fronted by **Cloudflare CDN**.
 
 The core differentiator is the **Content Guide Engine**, which prevents generic "AI slop" by forcing the AI to write from structured SerpAPI data points, narrative angles, and template constraints rather than summarizing existing articles. Every article goes through a **7-stage pipeline**: Trend Discovery → Keyword Selection → Content Guide Creation → AI Content Generation → SEO Optimization → Intelligent Linking → Publishing. Each stage is handled by dedicated TypeScript services orchestrated by node-cron scheduled tasks.
 
@@ -100,10 +100,10 @@ See [Getting Started](./getting-started.md) for the complete setup guide includi
 | --------------- | --------------------------------------------------- | ----------------------------------------------------- |
 | **Frontend**    | Next.js 15 (App Router) + Tailwind CSS + TypeScript | SSR pages, API client components, SEO meta rendering  |
 | **Backend**     | Express.js + TypeScript + Prisma ORM                | REST API, business logic services, cron orchestration |
-| **Database**    | SQLite via Prisma ORM                               | Local file-based storage (upgradeable to PostgreSQL)  |
+| **Database**    | PostgreSQL via Prisma ORM (Supabase)                  | Cloud-hosted relational database with connection pooling |
 | **Search Data** | SerpAPI                                             | Trends, SERP analysis, keyword validation, news, PAA  |
 | **AI Engine**   | Groq API (Llama 4 / Mixtral)                        | Content generation with structured prompts            |
-| **Cache**       | Next.js ISR + Express in-memory + SQLite            | Multi-layer caching strategy                          |
+| **Cache**       | Next.js ISR + Express in-memory + PostgreSQL        | Multi-layer caching strategy                          |
 | **CDN**         | Cloudflare (free tier)                              | Global asset delivery, SSL, DDoS protection           |
 | **Cron**        | node-cron                                           | Scheduled task execution (9 jobs)                     |
 | **Testing**     | Vitest (backend) + Playwright (e2e)                 | Test suites                                           |
@@ -112,7 +112,7 @@ See [Getting Started](./getting-started.md) for the complete setup guide includi
 
 - **Next.js App Router** provides hybrid SSR/SSG/ISR for SEO-optimized pages, built-in image optimization, and excellent DX with TypeScript
 - **Express.js** gives a lean, familiar backend for API endpoints and cron orchestration
-- **Prisma + SQLite** offers zero-config database setup with type-safe queries and easy migration to PostgreSQL at scale
+- **Prisma + PostgreSQL (Supabase)** provides type-safe queries, connection pooling, and a fully managed cloud database with automatic backups
 - **pnpm workspaces** keeps the monorepo structured with shared TypeScript configs
 - Same external APIs (SerpAPI, Groq) — the business logic that makes the system unique is preserved
 
@@ -144,8 +144,8 @@ See [Getting Started](./getting-started.md) for the complete setup guide includi
               │                  │                  │
               ▼                  ▼                  ▼
      ┌─────────────┐   ┌──────────────┐   ┌──────────────┐
-     │   SQLite    │   │   SerpAPI    │   │  Groq API    │
-     │  (Prisma)   │   │  (Search)    │   │  (AI Gen)    │
+     │  PostgreSQL  │   │   SerpAPI    │   │  Groq API    │
+     │ (Supabase)   │   │  (Search)    │   │  (AI Gen)    │
      └─────────────┘   └──────────────┘   └──────────────┘
 ```
 
@@ -242,13 +242,14 @@ See [API Reference](./api-reference.md) for full request/response schemas, error
 | **Modifier**                   | Descriptive addition to a head term (e.g., "stats", "net worth", "injury update")                     |
 | **PAA**                        | People Also Ask — Google's expandable question feature in search results                              |
 | **Prisma**                     | Type-safe ORM for Node.js/TypeScript with auto-generated query client                                 |
+| **PostgreSQL**                 | Relational database used via Supabase — cloud-hosted with connection pooling, automated backups       |
 | **Programmatic SEO**           | Scaling content production through data and templates rather than manual writing                      |
 | **Rank Math**                  | WordPress SEO plugin whose principles are implemented manually in this system                         |
 | **Schema Markup**              | Structured data that helps search engines understand page content                                     |
 | **SerpAPI**                    | Service that provides structured data from Google search results via API                              |
 | **SERP**                       | Search Engine Results Page — the page Google shows after a search query                               |
 | **Slug**                       | URL-friendly version of a title (e.g., "lebron-james-stats-2026")                                     |
-| **SQLite**                     | Embedded SQL database engine — zero-config, file-based storage (used via Prisma)                      |
+| **SQLite**                     | Embedded SQL database engine — zero-config, file-based storage (used via Prisma for local dev only)   |
 | **SSR**                        | Server-Side Rendering — rendering pages on the server per request                                     |
 | **TTL**                        | Time To Live — duration before cached data expires                                                    |
 | **Vector Similarity**          | Mathematical comparison of text embeddings to detect duplicate content                                |
@@ -266,4 +267,4 @@ This project is proprietary software. All rights reserved. The code and document
 
 ## Attribution
 
-GameDayWire was designed and developed as a programmatic SEO content automation platform. Built with Next.js 15, Express.js, Prisma ORM + SQLite, SerpAPI, Groq API, and Cloudflare CDN. Content generation powered by Llama 4 and Mixtral models via Groq API. Search data provided exclusively by SerpAPI.
+GameDayWire was designed and developed as a programmatic SEO content automation platform. Built with Next.js 15, Express.js, Prisma ORM + PostgreSQL (Supabase), SerpAPI, Groq API, and Cloudflare CDN. Content generation powered by Llama 4 and Mixtral models via Groq API. Search data provided exclusively by SerpAPI.

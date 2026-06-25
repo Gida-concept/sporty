@@ -38,7 +38,7 @@ Before starting, ensure your system meets the following requirements.
 | --------------------- | -------------------------------------------------- |
 | VS Code               | IDE with TypeScript support                        |
 | Docker                | Containerized development (see docker-compose.yml) |
-| TablePlus / Beekeeper | SQLite database viewer                             |
+| TablePlus / Beekeeper | Database viewer (PostgreSQL compatible)             |
 
 ### 1.2 Step-by-Step Installation
 
@@ -94,7 +94,7 @@ See [Section 3](#3-api-key-setup) and [Section 9](#9-environment-configuration-r
 
 **Step 4: Initialize the Database**
 
-Prisma manages database migrations. Run the initial migration to create all 7 tables:
+Prisma manages database migrations. Run the initial migration to create all tables:
 
 ```bash
 npx prisma migrate dev --name init
@@ -102,11 +102,11 @@ npx prisma migrate dev --name init
 
 This command:
 
-1. Applies the Prisma schema to your SQLite database
+1. Applies the Prisma schema to your PostgreSQL (Supabase) database
 2. Creates the `prisma/migrations/` directory with migration history
 3. Generates the Prisma client (`@prisma/client`)
 
-The database file (`dev.db`) is created at `backend/prisma/dev.db` by default. This file is listed in `.gitignore`.
+The database is hosted on Supabase and accessed via the `DATABASE_URL` in your `.env`. The connection string should point to your Supabase PostgreSQL instance.
 
 **Step 5: Seed Initial Data**
 
@@ -130,7 +130,7 @@ The seed script is idempotent — running it multiple times will not create dupl
 npx prisma studio
 ```
 
-This opens Prisma Studio, a GUI for browsing your database. You can view all 7 tables and their seeded data.
+This opens Prisma Studio, a GUI for browsing your database. You can view all tables and their seeded data.
 
 ---
 
@@ -254,28 +254,28 @@ The Indexing API integration is optional. Without it, Google will still find you
 
 ### 4.1 Database Technology
 
-The system uses **SQLite** via Prisma ORM for development and small-scale production deployments. SQLite provides:
+The system uses **PostgreSQL** (via Supabase) as its production database. For local development, you can either connect to your Supabase instance or switch to SQLite:
 
-- **Zero configuration** — no database server to install or manage
-- **File-based storage** — the entire database is a single file (`backend/prisma/dev.db`)
-- **Portability** — the database travels with your codebase
-- **Performance** — excellent for single-server deployments
-
-For larger deployments, the Prisma schema can be switched to PostgreSQL by changing the `provider` in `schema.prisma` from `"sqlite"` to `"postgresql"` and running the migration.
+- **PostgreSQL (Supabase)** — Cloud-hosted, managed database with connection pooling, automatic backups, and SSL. Set `DATABASE_URL` to your Supabase connection string.
+- **SQLite (local dev only)** — For offline development, change the Prisma schema provider to `"sqlite"` and set `DATABASE_URL="file:./dev.db"`. See [Database docs](./database.md) for instructions.
 
 ### 4.2 Database Schema
 
-The system uses 7 database models:
+The system uses 10 database models:
 
-| Model            | Purpose                                                      |
-| ---------------- | ------------------------------------------------------------ |
-| `trends`         | Stores trending search queries discovered by trendMonitor    |
-| `keywords`       | The Living Keyword Matrix — keyword combinations with scores |
-| `articles`       | Primary content table — every published article              |
-| `seo_metrics`    | SEO performance tracking over time                           |
-| `link_graph`     | Internal/external link records                               |
-| `content_guides` | Content Guide archives for audit trail                       |
-| `system_logs`    | Centralized logging for all system events                    |
+| Model            | Purpose                                                                |
+| ---------------- | ---------------------------------------------------------------------- |
+| `categories`     | Content categories with unique slugs (Sports, Entertainment, NBA, etc) |
+| `trends`         | Stores trending search queries discovered by trendMonitor              |
+| `keywords`       | The Living Keyword Matrix — keyword combinations with scores           |
+| `articles`       | Primary content table — every published article                        |
+| `article_categories` | Many-to-many join table linking articles to categories             |
+| `page_views`     | Daily-aggregated page view analytics per article                       |
+| `seo_metrics`    | SEO performance tracking over time                                     |
+| `link_graph`     | Internal/external link records                                         |
+| `content_guides` | Content Guide archives for audit trail                                 |
+| `system_logs`    | Centralized logging for all system events                              |
+| `site_settings`  | Key-value store for ad codes, header/body HTML injections              |
 
 See [Database](./database.md) for the complete Prisma schema with all columns, constraints, and relationships.
 
@@ -447,10 +447,16 @@ Should return valid RSS 2.0 XML.
 
 ### 6.5 Database Verification
 
-- [ ] Verify the database file exists:
+- [ ] Verify the database connection works:
 
 ```bash
-ls -la backend/prisma/dev.db
+node -e "
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+prisma.\$connect()
+  .then(() => { console.log('Database: OK'); prisma.\$disconnect(); })
+  .catch(e => { console.error('Database: FAILED', e.message); process.exit(1); });
+"
 ```
 
 - [ ] Verify seeded data:
@@ -601,7 +607,7 @@ The `.env` file contains all configuration for the system. Below is a complete r
 | `CACHE_TTL_HTML`                 | No       | 86400                   | HTML cache TTL in seconds (24 hours)                 |
 | `CACHE_TTL_API`                  | No       | 10800                   | API response cache TTL (3 hours)                     |
 | `CACHE_TTL_SITEMAP`              | No       | 21600                   | Sitemap cache TTL (6 hours)                          |
-| `DATABASE_URL`                   | Yes      | file:./dev.db           | Prisma database connection string                    |
+| `DATABASE_URL`                   | Yes      | postgresql://...        | Prisma database connection string (Supabase PostgreSQL) |
 | `PORT`                           | No       | 3001                    | Express server port                                  |
 | `NEXT_PUBLIC_API_URL`            | Yes      | http://localhost:3001   | Backend API URL for frontend                         |
 

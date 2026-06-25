@@ -436,14 +436,14 @@ The system does NOT link to competitors. Instead:
 Flow:
 
 ```
-Finalized Article -> SQLite Save -> SitemapManager Update XML
+Finalized Article -> PostgreSQL Save -> SitemapManager Update XML
 GoogleIndexingAPI Ping -> RSSFeed Update -> Cache Invalidate
 ```
 
 The Publisher:
 
 - Generates HTML from content blocks with proper schema
-- Saves article to SQLite via Prisma
+- Saves article to PostgreSQL via Prisma
 - Updates XML sitemap via SitemapManager
 - Pings Google Indexing API (new articles: `URL_NOTIFICATION`, updates: `URL_UPDATED`)
 - Updates RSS feed via RSSFeed (full-text RSS 2.0 for Google Discover eligibility)
@@ -478,7 +478,7 @@ The Publisher:
 
 ```
 Identify Stale Articles -> SerpAPI Fresh Data Fetch -> Content Refresh Guide -> GroqWriter Rewrite Sections
-Preserve URL & Backlinks <- Update SQLite dateModified <- SEO Re-optimize <- Link Re-inject
+Preserve URL & Backlinks <- Update PostgreSQL dateModified <- SEO Re-optimize <- Link Re-inject
 Re-ping Indexing API -> Cache Invalidate
 ```
 

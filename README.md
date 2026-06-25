@@ -7,7 +7,7 @@ GameDayWire is an autonomous programmatic SEO blog engine that discovers trendin
 ![Tech Stack](https://img.shields.io/badge/Next.js-15-000000?logo=next.js)
 ![Tech Stack](https://img.shields.io/badge/Express-4.x-259dff?logo=express)
 ![Tech Stack](https://img.shields.io/badge/Prisma-6.x-2D3748?logo=prisma)
-![Tech Stack](https://img.shields.io/badge/SQLite-3-003B57?logo=sqlite)
+![Tech Stack](https://img.shields.io/badge/PostgreSQL-15-336791?logo=postgresql)
 ![Tech Stack](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript)
 ![Tech Stack](https://img.shields.io/badge/pnpm-9-F69220?logo=pnpm)
 
@@ -35,7 +35,7 @@ pnpm dev
 ## Architecture Overview
 
 ```
-SerpAPI (Search Data) → Express Backend (Services) → SQLite (via Prisma)
+SerpAPI (Search Data) → Express Backend (Services) → PostgreSQL (via Prisma/Supabase)
                                 ↓
                           Groq API (AI Writer)
                                 ↓

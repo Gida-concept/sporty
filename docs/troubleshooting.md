@@ -78,7 +78,7 @@ pnpm install
 **Symptoms:**
 
 - `npx prisma migrate dev` returns errors.
-- Tables are not created in the SQLite file.
+- Tables are not created in the database.
 - Error messages about schema conflicts or missing database.
 
 **Causes and Solutions:**
@@ -103,15 +103,17 @@ npx prisma migrate reset
 npx prisma migrate dev --name init
 ```
 
-**SQLite File Permissions:**
+**Database Connection Permissions:**
 
 ```bash
-# Ensure the prisma directory is writable
+# Ensure the prisma directory is writable (SQLite only)
 ls -la backend/prisma/
 chmod 755 backend/prisma/
 touch backend/prisma/dev.db
 chmod 644 backend/prisma/dev.db
 ```
+
+For PostgreSQL, check connection string and network access instead.
 
 ### 1.3 404 on All Pages
 
@@ -242,7 +244,7 @@ DEBUG="prisma:*" pnpm --filter backend dev
 **Common API 500 Causes:**
 
 - **Missing `.env` configuration** — The endpoint tries to access a config value that is not set.
-- **Database query failure** — Prisma cannot connect to the SQLite file.
+- **Database query failure** — Prisma cannot connect to the PostgreSQL database.
 - **Cache directory not writable** — The API response cannot be cached.
 - **JSON parse error** — A SerpAPI or Groq response could not be parsed.
 
@@ -264,7 +266,7 @@ prisma.\$connect()
 
 ## 3. Database Issues
 
-### 3.1 SQLite Connection Failed
+### 3.1 PostgreSQL Connection Failed
 
 **Symptoms:**
 
@@ -277,36 +279,33 @@ prisma.\$connect()
 
 ```bash
 # Check your .env
-# Should be:
-DATABASE_URL="file:./dev.db"
-# The path is relative to backend/prisma/
+# Should be your Supabase PostgreSQL connection string:
+DATABASE_URL="postgresql://user:password@host:6543/postgres?pgbouncer=true&connection_limit=5"
 ```
 
-**SQLite File Missing:**
+**Supabase Connection Issues:**
 
 ```bash
-# The database file should be at backend/prisma/dev.db
-ls -la backend/prisma/dev.db
-
-# If it doesn't exist, run migration:
-npx prisma migrate dev
+# Verify the database is reachable
+node -e "
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+prisma.\$connect()
+  .then(() => { console.log('Database: OK'); prisma.\$disconnect(); })
+  .catch(e => console.error('Database: FAILED -', e.message));
+"
 ```
 
-**File Permissions:**
+**Common Causes:**
+- `DATABASE_URL` is missing or incorrect in `.env`
+- Supabase project paused due to inactivity (restart from Supabase dashboard)
+- IP restrictions on Supabase (enable public access or add your IP)
+- Password contains special characters not URL-encoded (use `%` encoding)
+- Connection pool exhausted (reduce `connection_limit` parameter)
+
+**Reset and Re-migrate (Development Only):**
 
 ```bash
-# SQLite needs write permission to both the file and directory
-chmod 755 backend/prisma/
-chmod 644 backend/prisma/dev.db
-```
-
-**Database Corrupted:**
-
-```bash
-# Backup current database
-cp backend/prisma/dev.db backend/prisma/dev.db.corrupt
-
-# Reset and re-migrate (development only)
 npx prisma migrate reset
 ```
 
