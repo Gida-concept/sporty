@@ -633,3 +633,28 @@ Migrated the database provider from Turso (libSQL/SQLite) to Supabase PostgreSQL
 - [x] `pnpm --filter backend build` -- Prisma client regenerated for PostgreSQL, TypeScript compiles clean
 - [x] `pnpm --filter backend typecheck` -- zero errors
 - [x] No remaining references to `libsql`, `turso`, or `@prisma/adapter-libsql` in `backend/` or `docs/`
+
+---
+
+## Completed — 2026-06-25 — Migrate Backend Hosting from Fly.io to apply.build
+
+### What Was Done
+Migrated backend hosting configuration from Fly.io to apply.build (European PaaS). Updated the Dockerfile documentation, renamed Fly.io config for reference, rewrote the deployment guide with apply.build step-by-step instructions, and updated env file comments.
+
+### Files Modified
+- `Dockerfile` -- Updated header comments: removed Fly.io-specific references, added apply.build deployment instructions, kept the multi-stage build structure intact (platform-agnostic)
+- `docs/deployment.md` -- Full restructure: added Section 3 (apply.build Deployment) with step-by-step guide, moved Docker section to Section 4, renumbered all subsequent sections, removed all Fly.io references and `fly secrets set` commands, added apply.build env var table, added monitoring/scaling notes
+- `.env.example` -- Replaced Fly.io secret comment with apply.build dashboard instructions
+- `backend/.env` -- Replaced Fly.io secret comment with apply.build reference
+
+### Files Renamed
+- `fly.toml` -> `fly.toml.bak` -- Archived Fly.io config for reference (won't be picked up by Fly.io CLI)
+
+### Files Verified (no changes needed)
+- `backend/package.json` -- Build and start scripts already correct (`"build": "prisma generate && npx tsc"`, `"start": "node dist/index.js"`)
+
+### Verification
+- [x] `fly.toml` renamed to `fly.toml.bak` -- Fly.io config archived
+- [x] `pnpm --filter backend typecheck` -- zero errors
+- [x] No dangling references or broken imports
+- [x] Dockerfile remains fully functional for any Docker-compatible platform (apply.build, Docker Compose, Kubernetes, etc.)

@@ -8,12 +8,13 @@ Complete deployment instructions for the Next.js + Express + PostgreSQL (Supabas
 
 1. [Local Development Setup](#1-local-development-setup)
 2. [Building for Production](#2-building-for-production)
-3. [Docker Deployment](#3-docker-deployment)
-4. [VPS Deployment (PM2 + Nginx)](#4-vps-deployment-pm2--nginx)
-5. [Environment Configuration Reference](#5-environment-configuration-reference)
-6. [Verification Checklist](#6-verification-checklist)
-7. [Rollback Plan](#7-rollback-plan)
-8. [Security Checklist](#8-security-checklist)
+3. [apply.build Deployment (Primary)](#3-applybuild-deployment-primary)
+4. [Docker Compose Deployment (Alternative)](#4-docker-compose-deployment-alternative)
+5. [VPS Deployment (PM2 + Nginx)](#5-vps-deployment-pm2--nginx)
+6. [Environment Configuration Reference](#6-environment-configuration-reference)
+7. [Verification Checklist](#7-verification-checklist)
+8. [Rollback Plan](#8-rollback-plan)
+9. [Security Checklist](#9-security-checklist)
 
 ---
 
@@ -127,13 +128,150 @@ pnpm --filter backend start
 pnpm --filter frontend start
 ```
 
-For production, use PM2 or Docker (see sections below) instead of running these directly.
+For production, use apply.build, Docker, or PM2 (see sections below) instead of running these directly.
 
 ---
 
-## 3. Docker Deployment
+## 3. apply.build Deployment (Primary)
 
-### 3.1 Docker Compose (Recommended)
+[apply.build](https://apply.build/) is a European PaaS based in Finland that supports Dockerfile-based deployments. The backend is deployed as a containerized Express.js API connected to Supabase PostgreSQL.
+
+### 3.1 Prerequisites
+
+- **GitHub repository** with the GameDayWire codebase pushed to a branch
+- **apply.build account** — sign up at https://apply.build
+- **Supabase PostgreSQL instance** — the database is hosted separately on Supabase; apply.build does not provide a managed database
+- **API keys** ready: SerpAPI, Groq, and optionally Google Indexing
+
+### 3.2 Step-by-Step Deployment Guide
+
+#### Step 1: Push Code to GitHub
+
+Ensure the repository is pushed to GitHub with all changes committed:
+
+```bash
+git add .
+git commit -m "Ready for apply.build deployment"
+git push origin main
+```
+
+#### Step 2: Create App on apply.build
+
+1. Log in to [apply.build](https://apply.build/)
+2. Click **Create App**
+3. Connect your GitHub repository
+4. Select the repository and branch containing GameDayWire
+
+#### Step 3: Choose Build Mode
+
+Select **Dockerfile** as the build mode. The root `Dockerfile` will be used automatically for a multi-stage build:
+
+- Stage 1 (`deps`): Install pnpm dependencies with cache
+- Stage 2 (`build`): Generate Prisma Client and compile TypeScript
+- Stage 3 (`runner`): Minimal production image with compiled output, Prisma schema/migrations, and production dependencies
+
+apply.build will detect the `Dockerfile` at the repository root and build it natively.
+
+#### Step 4: Configure Environment Variables
+
+Set all environment variables via the apply.build dashboard (**Settings -> Environment Variables**). All values are stored as secrets.
+
+**Core required variables:**
+
+| Variable                        | Required | Description                                               |
+| ------------------------------- | -------- | --------------------------------------------------------- |
+| `DATABASE_URL`                  | Yes      | Supabase PostgreSQL connection string (see section 3.3)   |
+| `NODE_ENV`                      | Yes      | Set to `production`                                       |
+| `PORT`                          | No       | Set to `8080` (matches Dockerfile EXPOSE)                 |
+| `SERPAPI_KEY`                   | Yes      | SerpAPI key for search data                               |
+| `GROQ_API_KEY`                  | Yes      | Groq API key for AI content generation                    |
+| `ADMIN_TOKEN`                   | Yes      | 64-char hex token for admin bearer authentication         |
+| `WEBHOOK_SECRET`                | No       | HMAC secret for webhook verification                      |
+| `GOOGLE_INDEXING_ENABLED`       | No       | Set to `true` to enable Google Indexing API               |
+| `GOOGLE_INDEXING_CLIENT_EMAIL`  | No       | Google service account email (if indexing enabled)        |
+| `GOOGLE_INDEXING_PRIVATE_KEY`   | No       | Google service account private key (if indexing enabled)  |
+| `NEXT_PUBLIC_API_URL`           | Yes      | The backend URL assigned by apply.build (e.g. `https://gamedaywire.apply.build`) |
+
+**Important:** Do NOT commit any of these values to version control. Set them exclusively through the apply.build dashboard.
+
+#### Step 5: Configure Supabase PostgreSQL Connection
+
+The `DATABASE_URL` should use Supabase's connection pooling (port 6543) for production:
+
+```
+DATABASE_URL=postgresql://user:password@aws-0-region.pooler.supabase.com:6543/postgres?sslmode=require
+```
+
+Obtain this from your Supabase project dashboard under **Project Settings -> Database -> Connection string -> URI**.
+
+#### Step 6: Deploy
+
+Click **Deploy** on the apply.build dashboard. The platform will:
+
+1. Clone the repository
+2. Build the Dockerfile
+3. Start the container with the configured environment variables
+4. Run database migrations automatically via the Dockerfile CMD: `npx prisma migrate deploy`
+5. Start the Express.js backend on port 8080
+
+#### Step 7: Verify Deployment
+
+Check the deployment logs in the apply.build dashboard. Once running, verify:
+
+```bash
+# Health check
+curl -s https://your-app.apply.build/api/health
+
+# Should return:
+# {"status":"ok","checks":{"database":{"status":"ok"},"serpapi":{...},"groq":{...}}}
+```
+
+### 3.3 Supabase PostgreSQL Connection
+
+The database is hosted on **Supabase** (not apply.build). Ensure your Supabase project:
+
+1. Has the `gamedaywire` database created (or uses the default `postgres` database)
+2. Has SSL mode enabled (add `?sslmode=require` to the connection string)
+3. Uses connection pooling port `6543` for production connections
+4. Has the IP range for apply.build allowed (if Supabase project has network restrictions)
+
+Run the initial migration from your local machine before deploying:
+
+```bash
+npx prisma migrate deploy
+```
+
+### 3.4 Updating the Application
+
+apply.build automatically rebuilds and redeploys when changes are pushed to the connected branch:
+
+```bash
+git push origin main
+```
+
+Alternatively, trigger a manual redeploy from the apply.build dashboard.
+
+### 3.5 Monitoring and Logs
+
+- **Deployment logs**: View build and runtime logs in the apply.build dashboard
+- **Health checks**: The Dockerfile includes a `HEALTHCHECK` that polls `/api/health` every 30 seconds
+- **Application logs**: Access live logs from the dashboard's Logs section
+
+### 3.6 Scaling
+
+apply.build handles container orchestration. For increased capacity:
+
+- Upgrade your apply.build plan for more resources
+- Optimize the in-memory cache (see `backend/src/middleware/cache.ts` — LRU with 10K entries)
+- Ensure Supabase PostgreSQL connection pool limits are adequate (Supabase Pro plan offers 15 connections minimum)
+
+---
+
+## 4. Docker Compose Deployment (Alternative)
+
+For self-hosting or local containerized testing, use Docker Compose.
+
+### 4.1 Docker Compose Configuration
 
 ```yaml
 # docker-compose.yml
@@ -143,11 +281,11 @@ services:
   backend:
     build:
       context: .
-      dockerfile: backend/Dockerfile
+      dockerfile: Dockerfile
     ports:
       - '3001:3001'
     volumes:
-      - backend_data:/app/data # Persist database (if using local file DB)
+      - backend_data:/app/data
       - backend_cache:/app/cache
       - backend_logs:/app/logs
     env_file:
@@ -190,7 +328,7 @@ services:
       - '443:443'
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro # SSL certificates
+      - ./ssl:/etc/nginx/ssl:ro
     depends_on:
       - frontend
       - backend
@@ -202,11 +340,16 @@ volumes:
   backend_logs:
 ```
 
-### 3.2 Dockerfile — Backend
+### 4.2 Dockerfile — Backend
+
+The root `Dockerfile` is the production backend image. It uses a multi-stage build:
 
 ```dockerfile
-# backend/Dockerfile
-# This is the actual Dockerfile used. See root Dockerfile for the full multi-stage build.
+# Root Dockerfile — Multi-stage build
+# Stage 1 (deps): Install pnpm dependencies
+# Stage 2 (build): Generate Prisma Client + compile TypeScript
+# Stage 3 (runner): Minimal production image
+
 FROM node:20-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -245,12 +388,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 CMD npx prisma migrate deploy --schema=backend/prisma/schema.prisma && node backend/dist/index.js
 ```
 
-**Database:** Set `DATABASE_URL` via environment variable (Fly secrets for production):
-```bash
-fly secrets set DATABASE_URL="postgresql://user:password@host:6543/postgres"
-```
-
-### 3.3 Dockerfile — Frontend
+### 4.3 Dockerfile — Frontend
 
 ```dockerfile
 # frontend/Dockerfile
@@ -273,17 +411,17 @@ EXPOSE 3000
 CMD ["pnpm", "--filter", "frontend", "start"]
 ```
 
-### 3.4 Running with Docker
+### 4.4 Running with Docker
 
 ```bash
 # Build and start all services
-docker-compose up -d --build
+docker compose up -d --build
 
 # Check logs
-docker-compose logs -f
+docker compose logs -f
 
 # Stop all services
-docker-compose down
+docker compose down
 
 # Backup the PostgreSQL database
 pg_dump "$DATABASE_URL" > ./backups/prod-$(date +%Y%m%d).sql
@@ -291,9 +429,9 @@ pg_dump "$DATABASE_URL" > ./backups/prod-$(date +%Y%m%d).sql
 
 ---
 
-## 4. VPS Deployment (PM2 + Nginx)
+## 5. VPS Deployment (PM2 + Nginx)
 
-### 4.1 Server Prerequisites
+### 5.1 Server Prerequisites
 
 ```bash
 # Install Node.js 20 LTS
@@ -313,7 +451,7 @@ sudo apt-get install -y nginx
 sudo apt-get install -y certbot python3-certbot-nginx
 ```
 
-### 4.2 Deploying the Application
+### 5.2 Deploying the Application
 
 ```bash
 # Clone the repository
@@ -339,7 +477,7 @@ pnpm seed
 pnpm build
 ```
 
-### 4.3 PM2 Configuration
+### 5.3 PM2 Configuration
 
 ```javascript
 // ecosystem.config.js (project root)
@@ -393,7 +531,7 @@ pm2 save
 pm2 startup
 ```
 
-### 4.4 Nginx Reverse Proxy Configuration
+### 5.4 Nginx Reverse Proxy Configuration
 
 ```nginx
 # /etc/nginx/sites-available/sporty
@@ -479,7 +617,7 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### 4.5 SSL Certificate (Let's Encrypt)
+### 5.5 SSL Certificate (Let's Encrypt)
 
 ```bash
 sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
@@ -488,7 +626,7 @@ sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
 sudo certbot renew --dry-run
 ```
 
-### 4.6 PM2 Monitoring Commands
+### 5.6 PM2 Monitoring Commands
 
 ```bash
 # View process status
@@ -513,7 +651,7 @@ pm2 reload ecosystem.config.js
 
 ---
 
-## 5. Environment Configuration Reference
+## 6. Environment Configuration Reference
 
 The `.env` file contains all configuration for the system. Below is the complete reference:
 
@@ -535,7 +673,7 @@ The `.env` file contains all configuration for the system. Below is the complete
 | `ADMIN_EMAIL`                    | No       | —                         | Admin email for alerts                            |
 | `WEBHOOK_SECRET`                 | No       | —                         | HMAC secret for webhook                           |
 | `ADMIN_TOKEN`                    | Yes      | —                         | 64-char hex token for admin bearer authentication |
-| `NEXT_PUBLIC_API_URL`            | Yes      | `http://localhost:3001`   | API URL (frontend → backend)                      |
+| `NEXT_PUBLIC_API_URL`            | Yes      | `http://localhost:3001`   | API URL (frontend -> backend)                      |
 | `PORT`                           | No       | `3001`                    | Backend Express port                              |
 | `ARTICLES_PER_DAY`               | No       | `2`                       | Articles generated daily                          |
 | `MORNING_HOUR`                   | No       | `8`                       | UTC hour for morning article                      |
@@ -558,11 +696,13 @@ The `.env` file contains all configuration for the system. Below is the complete
 | `LOG_LEVEL`                      | No       | `info`                    | Logging level                                     |
 | `NODE_ENV`                       | Yes      | `development`             | Environment (development/production)              |
 
+**For apply.build deployment**: Set these values via the **Settings -> Environment Variables** section of the dashboard. All values are stored as secrets and are never exposed in logs or build output.
+
 ---
 
-## 6. Verification Checklist
+## 7. Verification Checklist
 
-### 6.1 API Health Check
+### 7.1 API Health Check
 
 ```bash
 curl -s http://localhost:3001/api/health | node -e "
@@ -575,7 +715,7 @@ console.log('Groq:', j.checks.groq.status);
 "
 ```
 
-### 6.2 Trends API
+### 7.2 Trends API
 
 ```bash
 curl -s "http://localhost:3001/api/trends?limit=5" | node -e "
@@ -586,7 +726,7 @@ console.log('Cached:', j.cached);
 "
 ```
 
-### 6.3 Sitemap Verification
+### 7.3 Sitemap Verification
 
 ```bash
 # Validate sitemap index
@@ -596,7 +736,7 @@ curl -s http://localhost:3001/api/sitemap | head -20
 curl -s "http://localhost:3001/api/sitemap?type=articles&page=1" | head -20
 ```
 
-### 6.4 RSS Feed
+### 7.4 RSS Feed
 
 ```bash
 # Check RSS feed structure
@@ -606,7 +746,7 @@ curl -s http://localhost:3001/api/rss | head -20
 curl -s "http://localhost:3001/api/rss?category=sports" | head -20
 ```
 
-### 6.5 Cron Script Verification
+### 7.5 Cron Script Verification
 
 ```bash
 # Test each cron script in dry-run mode
@@ -616,7 +756,7 @@ trendMonitor({ dryRun: true }).then(console.log).catch(console.error);
 "
 ```
 
-### 6.6 Database Verification
+### 7.6 Database Verification
 
 ```bash
 # Check that PostgreSQL is reachable
@@ -636,9 +776,9 @@ check();
 
 ---
 
-## 7. Rollback Plan
+## 8. Rollback Plan
 
-### 7.1 Pre-Deployment Preparation
+### 8.1 Pre-Deployment Preparation
 
 ```bash
 # Back up the PostgreSQL database
@@ -651,7 +791,7 @@ tar -czf pre-deploy-backup.tar.gz --exclude='node_modules' --exclude='.next' --e
 pm2 list > pre-deploy-pm2-state.txt
 ```
 
-### 7.2 Rollback Scenarios
+### 8.2 Rollback Scenarios
 
 **Scenario A: Files Only (No Database Changes)**
 
@@ -694,11 +834,16 @@ cp .env.bak .env
 pm2 restart sporty-backend
 ```
 
+**apply.build Rollback:**
+
+- Redeploy a previous version from the apply.build dashboard by selecting a prior build
+- Or push a revert commit to trigger a rebuild of the last known-good state
+
 ---
 
-## 8. Security Checklist
+## 9. Security Checklist
 
-### 8.1 File and Directory Security
+### 9.1 File and Directory Security
 
 - [ ] `.env` has permissions `600`:
   ```bash
@@ -711,11 +856,11 @@ pm2 restart sporty-backend
 - [ ] `cache/` directory is not web-accessible
 - [ ] `logs/` directory is not web-accessible
 
-### 8.2 HTTP Security Headers
+### 9.2 HTTP Security Headers
 
 Verify with Nginx configuration:
 
-- [ ] HTTPS enforced (HTTP → HTTPS redirect)
+- [ ] HTTPS enforced (HTTP -> HTTPS redirect)
 - [ ] `Strict-Transport-Security` present (max-age=31536000)
 - [ ] `X-Frame-Options: DENY` present
 - [ ] `X-Content-Type-Options: nosniff` present
@@ -726,7 +871,7 @@ Verify with Nginx configuration:
 curl -sI https://yourdomain.com | grep -E "(X-Frame|X-Content|Referrer|Strict-Transport|Permissions-Policy)"
 ```
 
-### 8.3 Application Security
+### 9.3 Application Security
 
 - [ ] No API keys exposed in client-side code
 - [ ] Rate limiting enabled on all API endpoints
@@ -737,7 +882,7 @@ curl -sI https://yourdomain.com | grep -E "(X-Frame|X-Content|Referrer|Strict-Tr
 - [ ] Admin API endpoints require valid bearer token
 - [ ] `ADMIN_TOKEN` is a strong 64-char hex string stored only in `.env`
 
-### 8.5 Admin Access Verification
+### 9.4 Admin Access Verification
 
 ```bash
 # Test admin login endpoint
@@ -753,10 +898,10 @@ const j = JSON.parse(d);
 console.log('Total articles:', j.data.total_articles);
 console.log('Total pageviews:', j.data.total_pageviews);
 "
+```
 
-### 8.4 Database Security
+### 9.5 Database Security
 
 - [ ] PostgreSQL connection uses SSL (enforced by Supabase)
-- [ ] Database credentials stored only in `.env` / Fly secrets
+- [ ] Database credentials stored only in `.env` / apply.build secrets
 - [ ] Regular backups configured (see [cron-jobs.md](cron-jobs.md))
-```
