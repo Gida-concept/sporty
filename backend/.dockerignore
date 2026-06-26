@@ -1,17 +1,13 @@
 # =============================================================================
-# GameDayWire Backend — .dockerignore
+# GameDayWire Backend — .dockerignore (Reference Copy)
 # =============================================================================
-# This file tells Docker which files to exclude from the build context.
-# NOTE: Docker reads .dockerignore from the build context root (the monorepo
-# root), not from the directory containing the Dockerfile. For this file to
-# take effect, Docker requires a .dockerignore at the build context root.
+# This file documents the exclusions used for Docker builds. The actual
+# .dockerignore that Docker reads lives at the project root (the build
+# context root). This copy serves as the source of truth — copy its
+# contents to the root .dockerignore if you need to update exclusions.
 #
-# When building with:
-#   docker build -f backend/Dockerfile .
-#
-# Docker looks for .dockerignore in the build context (the '.' directory).
-# If you need build context exclusions, place a .dockerignore at the project
-# root with the same contents as this file.
+# Docker's build context is the monorepo root, so .dockerignore must be
+# at the project root (C:\Users\USCHIP\Desktop\sporty\.dockerignore).
 # =============================================================================
 
 # Dependencies

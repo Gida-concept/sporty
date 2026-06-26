@@ -154,14 +154,16 @@ Fly.io is the primary deployment platform for the GameDayWire backend. It runs t
 
 ### 3.2 Configuration Files
 
-All Docker and Fly.io configuration resides in the `backend/` directory:
+Docker and Fly.io configuration is split between the project root and `backend/`:
 
 | File | Purpose |
 |------|---------|
+| `fly.toml` | Root Fly.io config for CI and local deploys without --config |
+| `.dockerignore` | Docker build context exclusions (read from build context root) |
 | `backend/Dockerfile` | Multi-stage production Docker image |
 | `backend/Dockerfile.dev` | Dev mode with hot reload (tsx watch) |
-| `backend/.dockerignore` | Docker build context exclusions (place at project root for Docker to pick it up) |
-| `backend/fly.toml` | Fly.io app configuration |
+| `backend/fly.toml` | Authoritative Fly.io app configuration (use with `--config`) |
+| `backend/.dockerignore` | Reference copy (Docker reads `.dockerignore` from build context root only) |
 
 ### 3.3 Step-by-Step Deployment Guide
 
@@ -280,12 +282,15 @@ Key design decisions:
 
 ### 3.5 Updating the Application
 
-Push code changes to GitHub and redeploy:
+Push code changes to GitHub. The GitHub Actions workflow (`.github/workflows/deploy.yml`) deploys automatically:
 
 ```bash
 git push origin main
+```
 
-# Or deploy directly from local:
+**Or deploy directly from local:**
+
+```bash
 fly deploy --config backend/fly.toml
 ```
 
@@ -375,6 +380,51 @@ cd backend
 npx prisma migrate deploy
 cd ..
 ```
+
+### 3.11 GitHub Actions CI/CD (Automated Deployments)
+
+A GitHub Actions workflow at `.github/workflows/deploy.yml` automatically deploys the backend to Fly.io on every push to the `main` branch.
+
+#### How It Works
+
+1. On push to `main`, GitHub Actions checks out the repository
+2. Installs the `flyctl` CLI
+3. Runs `flyctl deploy --remote-only --config backend/fly.toml` from the repo root
+4. Fly.io's remote builder builds the Docker image using `backend/Dockerfile`
+5. The image is pushed to Fly.io's registry and deployed
+
+#### Prerequisites
+
+The workflow requires a **Fly.io deploy token** stored as a GitHub Actions secret:
+
+1. Generate a deploy token for the `gamedaywire-api` app:
+   ```bash
+   fly tokens create deploy -a gamedaywire-api
+   ```
+   Copy the output token.
+
+2. Add it to GitHub repository secrets:
+   - Go to your repo on GitHub: **Settings -> Secrets and variables -> Actions**
+   - Click **New repository secret**
+   - Name: `FLY_API_TOKEN`
+   - Value: paste the deploy token from step 1
+
+#### Disable Fly.io Native GitHub Integration
+
+If you previously connected Fly.io's native GitHub integration (which auto-generates a stock Dockerfile), **disable it** to avoid duplicate builds and conflicts:
+
+- Go to the **Fly.io dashboard** -> **gamedaywire-api** app -> **Deploy** section
+- Disable or remove the GitHub integration
+- Or, if you used the Fly.io "Launch" wizard, ensure no auto-deploy hooks remain
+
+The `.github/workflows/deploy.yml` workflow replaces the native integration entirely.
+
+#### Manual CI Deploy
+
+You can also trigger the workflow manually from the GitHub Actions tab:
+
+1. Navigate to your repo on GitHub
+2. Click **Actions** -> **Deploy to Fly.io** -> **Run workflow**
 
 ---
 

@@ -1,0 +1,66 @@
+# =============================================================================
+# GameDayWire Backend — Deploy to Fly.io
+# =============================================================================
+# This workflow deploys the Express.js backend to Fly.io on every push to
+# the main branch. It uses our custom multi-stage Dockerfile at
+# backend/Dockerfile (referenced by the root fly.toml).
+#
+# Prerequisites:
+#   1. A Fly.io deploy token set as a GitHub Actions secret named FLY_API_TOKEN.
+#      Generate one at: https://fly.io/user/settings/access-tokens
+#      Create a "deploy token" (not a personal token) for CI/CD:
+#        fly tokens create deploy -a gamedaywire-api
+#      Then add it: GitHub repo -> Settings -> Secrets and variables -> Actions
+#
+#   2. The root fly.toml at the repository root must have:
+#        [build]
+#        dockerfile = "backend/Dockerfile"
+#
+#   3. The Fly.io app must already exist. Create it once with:
+#        fly launch --config backend/fly.toml --dockerfile backend/Dockerfile --no-deploy --name gamedaywire-api
+#
+#   4. Set all required secrets on Fly.io:
+#        fly secrets set DATABASE_URL="..." --config backend/fly.toml
+#        fly secrets set SERPAPI_KEY="..." --config backend/fly.toml
+#        fly secrets set GROQ_API_KEY="..." --config backend/fly.toml
+#        fly secrets set ADMIN_TOKEN="..." --config backend/fly.toml
+#
+# IMPORTANT: If you previously connected Fly.io's native GitHub integration
+# (not this workflow), disable it in the Fly.io dashboard under your app's
+# "Deploy" section to avoid duplicate builds.
+# =============================================================================
+
+name: Deploy to Fly.io
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Build and Deploy Backend
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      # Full checkout with history needed for commit-sha tagging
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Install the flyctl CLI for deployment
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      # Deploy using the root fly.toml which references backend/Dockerfile
+      # The build context is the monorepo root ($GITHUB_WORKSPACE), which is
+      # required for npm workspace resolution (package-lock.json and root
+      # package.json with workspaces field must be present).
+      # --remote-only builds on Fly.io's servers (no local Docker needed).
+      - name: Deploy to Fly.io
+        run: flyctl deploy --remote-only --config backend/fly.toml
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

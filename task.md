@@ -175,3 +175,72 @@ Fly.io GitHub integration looks for `fly.toml` at the **project root**. Our conf
 
 ---
 
+## Phase 16.6: Fix Fly.io Deploy — GitHub Actions Workflow
+
+**Goal:** Stop Fly.io from using the auto-generated stock Dockerfile and deploy with our custom `backend/Dockerfile` via GitHub Actions CI.
+
+### Root Cause Analysis
+
+The Fly.io native GitHub integration (not a GitHub Actions workflow file) was handling deploys. When the repo was connected to Fly.io, its `fly launch` command created a separate remote branch `origin/flyio-new-files` (commit `c2f5f35` "New files from Fly.io Launch") with:
+
+- **Root `fly.toml`** with `app = 'gamedaywire'` (NOT our app `gamedaywire-api`)
+- **Root `Dockerfile`** — auto-generated 977-byte stock Dockerfile (`node:22.21.1-slim`)
+- **Root `.dockerignore`** — auto-generated
+
+The integration deployed to the auto-created `gamedaywire` app (not our `gamedaywire-api` app) using this auto-generated config, completely ignoring:
+- Our root `fly.toml` with `app = "gamedaywire-api"` and `[build] dockerfile = "backend/Dockerfile"`
+- Our custom 5,319-byte `backend/Dockerfile`
+
+### Fix Applied
+
+1. **Created `.github/workflows/deploy.yml`** — A proper GitHub Actions workflow that deploys using `flyctl deploy --remote-only --config backend/fly.toml` from the monorepo root. This explicitly uses our custom Dockerfile and targets the correct `gamedaywire-api` app. Requires `FLY_API_TOKEN` secret set in GitHub.
+
+2. **Created root `.dockerignore`** — Docker reads `.dockerignore` from the build context root (the monorepo root for our setup), but no file existed there. The new root `.dockerignore` excludes `node_modules/`, `.git/`, build artifacts, env files, and other unnecessary data from the build context, reducing upload size and preventing accidental inclusion of secrets.
+
+3. **Updated `docs/deployment.md`** — Added section 3.11 documenting the GitHub Actions workflow, prerequisites (deploy token setup), and instructions to disable Fly.io's native GitHub integration to avoid duplicate builds. Updated section 3.2 to reference root `fly.toml` and `.dockerignore`. Updated section 3.5 to mention the automatic CI deployment.
+
+4. **Updated `backend/.dockerignore` header** — Changed from claiming it's the active config to documenting it as a reference copy, pointing to the root `.dockerignore` as the actual file Docker reads.
+
+### Files Created
+
+| File | Description |
+|------|-------------|
+| `.github/workflows/deploy.yml` | GitHub Actions workflow for Fly.io deployment |
+| `.dockerignore` | Docker build context exclusions at the project root |
+
+### Files Modified
+
+| File | Description |
+|------|-------------|
+| `docs/deployment.md` | Added section 3.11 (CI/CD workflow), updated sections 3.2, 3.5 |
+| `backend/.dockerignore` | Updated header to reference root `.dockerignore` as the authoritative config |
+
+### User Action Required
+
+Before the GitHub Actions workflow will work:
+
+1. Generate a Fly.io deploy token:
+   ```bash
+   fly tokens create deploy -a gamedaywire-api
+   ```
+
+2. Add `FLY_API_TOKEN` as a GitHub repository secret (Settings -> Secrets and variables -> Actions)
+
+3. **Disable Fly.io's native GitHub integration** in the Fly.io dashboard (app -> Deploy section) to avoid duplicate conflicting builds
+
+4. Commit and push:
+   ```bash
+   git add .github/workflows/deploy.yml .dockerignore docs/deployment.md backend/.dockerignore
+   git commit -m "Add GitHub Actions workflow for Fly.io deploy with custom Dockerfile"
+   git push origin main
+   ```
+
+### Verification
+
+- [x] `.github/workflows/deploy.yml` created with proper Fly.io deployment workflow
+- [x] Root `.dockerignore` created to exclude unnecessary files from build context
+- [x] `docs/deployment.md` updated with CI/CD documentation and setup instructions
+- [x] `backend/.dockerignore` header updated to reference root `.dockerignore`
+- [x] No dangling imports or broken references in any modified file
+- [x] All new files follow project conventions and documentation standards
+

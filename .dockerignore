@@ -1,0 +1,78 @@
+# =============================================================================
+# GameDayWire — Docker Build Context .dockerignore
+# =============================================================================
+# Docker reads .dockerignore from the build context root (the monorepo root).
+# This file excludes unnecessary files from being uploaded to Fly.io's
+# remote builder, improving build speed and preventing accidental inclusion
+# of secrets or large directories.
+#
+# When building with:
+#   fly deploy --config backend/fly.toml            # Fly.io
+#   docker build -f backend/Dockerfile .            # Local
+#
+# Docker looks for .dockerignore in the build context (the '.' directory).
+# =============================================================================
+
+# Dependencies (must never be uploaded — installed during Docker build)
+node_modules/
+.npm/
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# Build output (generated during Docker build, not needed in build context)
+dist/
+.next/
+out/
+
+# Tests and coverage
+tests/
+coverage/
+playwright-report/
+test-results/
+*.test.ts
+*.spec.ts
+*.test.js
+*.spec.js
+
+# Environment files (secrets must never be in a Docker layer)
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Documentation (not needed at runtime)
+docs/
+*.md
+README.md
+LICENSE
+
+# IDE and OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Cache
+cache/
+.turbo/
+*.tsbuildinfo
+
+# Database files (local development only)
+*.db
+*.db-journal
+
+# Docker files
+docker-compose*.yml
+
+# Backend data directory
+backend/data/
