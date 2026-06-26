@@ -561,20 +561,8 @@ If a non-critical service is unavailable, status returns `"degraded"`:
 ```json
 {
   "status": "degraded",
-  "checks": {
-    "google_indexing_api": {
-      "status": "error",
-      "last_success": "2026-06-18T08:00:00Z",
-      "message": "OAuth token expired"
-    }
-  },
-  "alerts": [
-    {
-      "severity": "error",
-      "message": "Google Indexing API authentication failed",
-      "since": "2026-06-18T08:00:00Z"
-    }
-  ]
+  "checks": {},
+  "alerts": []
 }
 ```
 
@@ -1832,7 +1820,6 @@ All services reside in `backend/src/services/`. They are not directly exposed to
 - `publish(articleData: object): object`
 - `generateHtml(article: object): string`
 - `writeCache(slug: string, html: string): boolean`
-- `pingGoogleIndexing(url: string, type?: string): boolean`
 - `qualityCheck(article: object): boolean`
 
 ### ImageHandler

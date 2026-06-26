@@ -244,17 +244,16 @@ While the system is fully automated, these triggers **pause for manual review** 
 1. **Preserve URL and backlinks** — The article slug and all inbound links remain unchanged
 2. **Update `dateModified` schema** — Structured data reflects the update date
 3. **"Updated [Date]" badge** — Visible to readers, shows editorial freshness
-4. **Re-ping Indexing API** — Google is notified of the updated content
-5. **Section-level updates only** — Rewrite affected sections while preserving structure
-6. **No URL changes** — Never change the slug of a published article
-7. **Re-validate quality gates** — Refreshed content must pass all 7 anti-slop rules
+4. **Section-level updates only** — Rewrite affected sections while preserving structure
+5. **No URL changes** — Never change the slug of a published article
+6. **Re-validate quality gates** — Refreshed content must pass all 7 anti-slop rules
 
 ### Refresh Process Flow
 
 ```
 Identify Stale Articles -> SerpAPI Fresh Data Fetch -> Content Refresh Guide -> GroqWriter Rewrite Sections
 Preserve URL & Backlinks <- Update PostgreSQL dateModified <- SEO Re-optimize <- Link Re-inject
-Re-ping Indexing API -> Cache Invalidate
+Cache Invalidate
 ```
 
 ---

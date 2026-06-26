@@ -226,28 +226,6 @@ import('node:https').then(https => {
 "
 ```
 
-### 3.3 Google Indexing API (Optional)
-
-The Google Indexing API allows the system to notify Google immediately when new articles are published or updated, speeding up indexation. Setting it up requires a Google Cloud Platform service account:
-
-1. Go to [https://console.cloud.google.com](https://console.cloud.google.com) and create a new project (or select an existing one).
-2. Enable the "Indexing API" from the API Library.
-3. Create a service account (IAM & Admin > Service Accounts > Create Service Account).
-4. Grant the service account the "Owner" role for the project (or a more restrictive role if you prefer).
-5. Create a JSON key for the service account and download it.
-6. In Google Search Console, add the service account email as an owner of your property.
-7. Set the following in your `.env` file:
-
-```env
-GOOGLE_INDEXING_CLIENT_EMAIL=your-service-account@project.iam.gserviceaccount.com
-GOOGLE_INDEXING_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY\n-----END PRIVATE KEY-----\n"
-GOOGLE_SEARCH_CONSOLE_PROPERTY=sc-domain:yourdomain.com
-```
-
-**Important:** The private key must be on a single line with `\n` for newlines. Copy the entire key including `-----BEGIN PRIVATE KEY-----` and `-----END PRIVATE KEY-----`.
-
-The Indexing API integration is optional. Without it, Google will still find your articles through the sitemap, but indexation may take longer (days instead of hours).
-
 ---
 
 ## 4. Database Setup
@@ -579,8 +557,6 @@ The `.env` file contains all configuration for the system. Below is a complete r
 | -------------------------------- | -------- | ----------------------- | ---------------------------------------------------- |
 | `SERPAPI_KEY`                    | Yes      | --                      | SerpAPI API key for search data                      |
 | `GROQ_API_KEY`                   | Yes      | --                      | Groq API key for AI generation                       |
-| `GOOGLE_INDEXING_CLIENT_EMAIL`   | No       | --                      | GCP service account email for Indexing API           |
-| `GOOGLE_INDEXING_PRIVATE_KEY`    | No       | --                      | GCP service account private key                      |
 | `GOOGLE_SEARCH_CONSOLE_PROPERTY` | No       | --                      | Search Console property (sc-domain:example.com)      |
 | `SITE_URL`                       | Yes      | http://localhost:3000   | Site URL (used for sitemap, canonical URLs, OG tags) |
 | `SITE_NAME`                      | Yes      | GameDayWire             | Site name for schema, RSS, and branding              |

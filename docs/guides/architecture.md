@@ -109,8 +109,6 @@ SerpAPI (Search Data) -> Express Backend (Services) -> PostgreSQL (via Prisma/Su
 
 **Groq API** — AI content generation via `/openai/v1/chat/completions`. Primary model: `llama-4-70b` (fast inference, ~800 tokens/sec). Fallback: `mixtral-8x7b`. Configuration: temperature 0.3, max tokens 4096, top-p 0.9, JSON mode enabled. Retry up to 3 attempts with 5-second delay. Timeout: 60s for generation, 30s for quality validation.
 
-**Google Indexing API** — URL notification for new/updated articles via `/v3/urlNotifications:publish`. OAuth 2.0 service account authentication. Scope: `https://www.googleapis.com/auth/indexing`.
-
 ### 2.5 Newsletter Subscription System
 
 The frontend includes a newsletter subscription feature in the article sidebar. The component (`NewsletterSubscribe`) is a client-side React component that validates email format, POSTs to `/api/subscribe`, and displays success/error states.
@@ -216,7 +214,6 @@ User enters email -> NewsletterSubscribe (client component) -> POST /api/subscri
 | --------------- | ----------- | --------- | ----------------- |
 | SerpAPI         | `.env` file | Quarterly | Service role only |
 | Groq API        | `.env` file | Quarterly | Service role only |
-| Google Indexing | `.env` file | Annually  | Service role only |
 
 ---
 

@@ -103,7 +103,6 @@ For each stale article:
 1. Generate new ContentGuide with updated SerpAPI data
 2. Rewrite affected sections (preserve URL and structure)
 3. Update `dateModified` schema
-4. Re-ping Google Indexing API
 
 ### sitemapGenerator
 
@@ -198,7 +197,6 @@ pnpm cron:dry-run backup
 A dry run executes all logic (data fetching, scoring, analysis, logging) but **skips**:
 
 - Database writes (INSERT/UPDATE)
-- External API calls with side effects (Google Indexing API pings)
 - Cache file writes
 - Published content changes
 

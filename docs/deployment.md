@@ -8,7 +8,7 @@ Complete deployment instructions for the Next.js + Express + PostgreSQL (Supabas
 
 1. [Local Development Setup](#1-local-development-setup)
 2. [Building for Production](#2-building-for-production)
-3. [apply.build Deployment (Primary)](#3-applybuild-deployment-primary)
+3. [Fly.io Deployment (Primary)](#3-flyio-deployment-primary)
 4. [Docker Compose Deployment (Alternative)](#4-docker-compose-deployment-alternative)
 5. [VPS Deployment (PM2 + Nginx)](#5-vps-deployment-pm2--nginx)
 6. [Environment Configuration Reference](#6-environment-configuration-reference)
@@ -128,75 +128,97 @@ pnpm --filter backend start
 pnpm --filter frontend start
 ```
 
-For production, use apply.build, Docker, or PM2 (see sections below) instead of running these directly.
+For production, use Fly.io, Docker, or PM2 (see sections below) instead of running these directly.
 
 ---
 
-## 3. apply.build Deployment (Primary)
+## 3. Fly.io Deployment (Primary)
 
-[apply.build](https://apply.build/) is a European PaaS based in Finland that supports Dockerfile-based deployments. The backend is deployed as a containerized Express.js API connected to Supabase PostgreSQL.
+Fly.io is the primary deployment platform for the GameDayWire backend. It runs the Express.js API in a Docker container connected to Supabase PostgreSQL.
 
 ### 3.1 Prerequisites
 
-- **GitHub repository** with the GameDayWire codebase pushed to a branch
-- **apply.build account** — sign up at https://apply.build
-- **Supabase PostgreSQL instance** — the database is hosted separately on Supabase; apply.build does not provide a managed database
-- **API keys** ready: SerpAPI, Groq, and optionally Google Indexing
+- **Fly.io account** — sign up at https://fly.io and install the CLI:
+  ```bash
+  curl -L https://fly.io/install.sh | sh
+  # Or on Windows (PowerShell):
+  # powershell -Command "iwr https://fly.io/install.ps1 -useb | iex"
+  ```
+- **Supabase PostgreSQL instance** — the database is hosted separately on Supabase
+- **API keys** ready: SerpAPI and Groq
+- **Docker** installed locally (for testing builds)
+- **Logged into Fly CLI**:
+  ```bash
+  fly auth login
+  ```
 
-### 3.2 Step-by-Step Deployment Guide
+### 3.2 Configuration Files
 
-#### Step 1: Push Code to GitHub
+All Docker and Fly.io configuration resides in the `backend/` directory:
 
-Ensure the repository is pushed to GitHub with all changes committed:
+| File | Purpose |
+|------|---------|
+| `backend/Dockerfile` | Multi-stage production Docker image |
+| `backend/Dockerfile.dev` | Dev mode with hot reload (tsx watch) |
+| `backend/.dockerignore` | Docker build context exclusions (mirror at project root) |
+| `backend/fly.toml` | Fly.io app configuration |
+
+### 3.3 Step-by-Step Deployment Guide
+
+#### Step 1: Ensure Prisma Migrations Exist
+
+Before deploying, create your initial database migration if it does not already exist:
 
 ```bash
-git add .
-git commit -m "Ready for apply.build deployment"
-git push origin main
+cd backend
+npx prisma migrate dev --name init
+cd ..
 ```
 
-#### Step 2: Create App on apply.build
+Commit the migration files to version control:
 
-1. Log in to [apply.build](https://apply.build/)
-2. Click **Create App**
-3. Connect your GitHub repository
-4. Select the repository and branch containing GameDayWire
+```bash
+git add backend/prisma/migrations/
+git commit -m "Add initial Prisma migration"
+```
 
-#### Step 3: Choose Build Mode
+#### Step 2: Create the Fly.io App
 
-Select **Dockerfile** as the build mode. The root `Dockerfile` will be used automatically for a multi-stage build:
+Run this from the **monorepo root** (the `sporty/` directory):
 
-- Stage 1 (`deps`): Install pnpm dependencies with cache
-- Stage 2 (`build`): Generate Prisma Client and compile TypeScript
-- Stage 3 (`runner`): Minimal production image with compiled output, Prisma schema/migrations, and production dependencies
+```bash
+fly launch \
+  --config backend/fly.toml \
+  --dockerfile backend/Dockerfile \
+  --no-deploy \
+  --name gamedaywire-api
+```
 
-apply.build will detect the `Dockerfile` at the repository root and build it natively.
+This creates the app on Fly.io but does not deploy it yet. The `--name` flag sets your app name (change as desired).
 
-#### Step 4: Configure Environment Variables
+If you already created the app from the Fly.io dashboard, skip this step and ensure your `backend/fly.toml` has the correct `app` name.
 
-Set all environment variables via the apply.build dashboard (**Settings -> Environment Variables**). All values are stored as secrets.
+#### Step 3: Set Environment Secrets
 
-**Core required variables:**
+Set all secrets via the Fly.io CLI. These are encrypted at rest and injected as environment variables at runtime:
 
-| Variable                        | Required | Description                                               |
-| ------------------------------- | -------- | --------------------------------------------------------- |
-| `DATABASE_URL`                  | Yes      | Supabase PostgreSQL connection string (see section 3.3)   |
-| `NODE_ENV`                      | Yes      | Set to `production`                                       |
-| `PORT`                          | No       | Set to `8080` (matches Dockerfile EXPOSE)                 |
-| `SERPAPI_KEY`                   | Yes      | SerpAPI key for search data                               |
-| `GROQ_API_KEY`                  | Yes      | Groq API key for AI content generation                    |
-| `ADMIN_TOKEN`                   | Yes      | 64-char hex token for admin bearer authentication         |
-| `WEBHOOK_SECRET`                | No       | HMAC secret for webhook verification                      |
-| `GOOGLE_INDEXING_ENABLED`       | No       | Set to `true` to enable Google Indexing API               |
-| `GOOGLE_INDEXING_CLIENT_EMAIL`  | No       | Google service account email (if indexing enabled)        |
-| `GOOGLE_INDEXING_PRIVATE_KEY`   | No       | Google service account private key (if indexing enabled)  |
-| `NEXT_PUBLIC_API_URL`           | Yes      | The backend URL assigned by apply.build (e.g. `https://gamedaywire.apply.build`) |
+```bash
+# Required secrets
+fly secrets set DATABASE_URL="postgresql://user:password@aws-0-region.pooler.supabase.com:6543/postgres?sslmode=require"
+fly secrets set SERPAPI_KEY="your-serpapi-key-here"
+fly secrets set GROQ_API_KEY="your-groq-api-key-here"
+fly secrets set ADMIN_TOKEN="your-64-char-hex-token"
 
-**Important:** Do NOT commit any of these values to version control. Set them exclusively through the apply.build dashboard.
+# Optional secrets
+fly secrets set WEBHOOK_SECRET="your-webhook-secret"
+```
 
-#### Step 5: Configure Supabase PostgreSQL Connection
+**Important:** Run `fly secrets set` from the directory containing `fly.toml`, or use `--config`:
+```bash
+fly secrets set KEY=VALUE --config backend/fly.toml
+```
 
-The `DATABASE_URL` should use Supabase's connection pooling (port 6543) for production:
+The `DATABASE_URL` should use Supabase's connection pooling (port **6543**) for production:
 
 ```
 DATABASE_URL=postgresql://user:password@aws-0-region.pooler.supabase.com:6543/postgres?sslmode=require
@@ -204,66 +226,155 @@ DATABASE_URL=postgresql://user:password@aws-0-region.pooler.supabase.com:6543/po
 
 Obtain this from your Supabase project dashboard under **Project Settings -> Database -> Connection string -> URI**.
 
-#### Step 6: Deploy
+#### Step 4: Deploy
 
-Click **Deploy** on the apply.build dashboard. The platform will:
+Deploy from the **monorepo root**:
 
-1. Clone the repository
-2. Build the Dockerfile
-3. Start the container with the configured environment variables
-4. Run database migrations automatically via the Dockerfile CMD: `npx prisma migrate deploy`
+```bash
+fly deploy --config backend/fly.toml
+```
+
+Fly.io will:
+1. Upload the build context (monorepo root — includes `pnpm-lock.yaml` for workspace resolution)
+2. Build the Docker image using `backend/Dockerfile` (multi-stage build)
+3. Start the container with your secrets injected as environment variables
+4. Run database migrations automatically via `npx prisma migrate deploy`
 5. Start the Express.js backend on port 8080
+6. Begin health check polling at `/api/health`
 
-#### Step 7: Verify Deployment
-
-Check the deployment logs in the apply.build dashboard. Once running, verify:
+#### Step 5: Verify Deployment
 
 ```bash
 # Health check
-curl -s https://your-app.apply.build/api/health
+curl -s https://gamedaywire-api.fly.dev/api/health
 
-# Should return:
-# {"status":"ok","checks":{"database":{"status":"ok"},"serpapi":{...},"groq":{...}}}
+# Expected response:
+# {"success":true,"status":"healthy","checks":{"database":{"status":"ok","latency_ms":3}}}
 ```
 
-### 3.3 Supabase PostgreSQL Connection
+Check deployment logs:
 
-The database is hosted on **Supabase** (not apply.build). Ensure your Supabase project:
+```bash
+fly logs --config backend/fly.toml
+```
 
-1. Has the `gamedaywire` database created (or uses the default `postgres` database)
-2. Has SSL mode enabled (add `?sslmode=require` to the connection string)
-3. Uses connection pooling port `6543` for production connections
-4. Has the IP range for apply.build allowed (if Supabase project has network restrictions)
+### 3.4 Build Process Details
+
+The Dockerfile (`backend/Dockerfile`) uses a 4-stage build:
+
+| Stage | Purpose | Contents |
+|-------|---------|----------|
+| `base` | Alpine base with OpenSSL | `node:20-alpine`, pnpm 9, OpenSSL for Prisma |
+| `deps` | Install dependencies | All deps (including devDeps for Prisma generate + tsc) |
+| `build` | Compile TypeScript + Prisma | `prisma generate`, `npx tsc` |
+| `runner` | Minimal production image | Production deps only, compiled output, Prisma schema, non-root user |
+
+Key design decisions:
+
+- **`node:20-alpine`**: Minimal base image (~125MB) with excellent security posture
+- **OpenSSL**: Required by Prisma for TLS connections to Supabase PostgreSQL
+- **Prisma client regenerated in runner**: Ensures the Prisma query engine binary matches the runtime CPU architecture (critical when building on ARM Macs and deploying on AMD64 Fly.io machines)
+- **Non-root user**: `appuser` (UID 1001) runs the application for security hardening
+- **Health check**: Polls `/api/health` every 30 seconds; returns 503 when database is unreachable
+- **pnpm `--frozen-lockfile`**: Ensures reproducible builds by failing if lockfile is out of date
+
+### 3.5 Updating the Application
+
+Push code changes to GitHub and redeploy:
+
+```bash
+git push origin main
+
+# Or deploy directly from local:
+fly deploy --config backend/fly.toml
+```
+
+Fly.io rebuilds the Docker image from scratch on each deploy. The Docker layer cache helps speed this up — dependency layers are cached unless `pnpm-lock.yaml` changes.
+
+### 3.6 Monitoring and Logs
+
+```bash
+# View live logs
+fly logs --config backend/fly.toml
+
+# View machine status
+fly status --config backend/fly.toml
+
+# SSH into the running container (debugging)
+fly ssh console --config backend/fly.toml
+
+# View metrics (CPU, memory, network)
+fly metrics --config backend/fly.toml
+```
+
+### 3.7 Scaling
+
+```bash
+# Scale to 2 machines (for high availability)
+fly scale count 2 --config backend/fly.toml
+
+# Scale memory (512MB shared CPU)
+fly scale memory 1024 --config backend/fly.toml
+
+# Scale to dedicated CPU
+fly scale vm performance-1x --config backend/fly.toml
+```
+
+The backend uses in-memory LRU caching (10K entries, 120s TTL) which works best with sticky sessions or a single machine. For multi-machine deployments, consider adding Redis for a shared cache layer.
+
+### 3.8 Managing Secrets
+
+```bash
+# List secrets (shows keys only)
+fly secrets list --config backend/fly.toml
+
+# Update a secret
+fly secrets set KEY=new-value --config backend/fly.toml
+
+# Remove a secret
+fly secrets unset KEY --config backend/fly.toml
+```
+
+Secrets are encrypted at rest and only decrypted at container startup. Changing a secret requires a redeploy (`fly deploy`).
+
+### 3.9 Local Docker Testing
+
+Test the production Docker image locally before deploying:
+
+```bash
+# Build the image
+docker build -f backend/Dockerfile -t gamedaywire-api .
+
+# Run with local env vars
+docker run -it --rm \
+  -p 8080:8080 \
+  -e DATABASE_URL="postgresql://..." \
+  -e SERPAPI_KEY="..." \
+  -e GROQ_API_KEY="..." \
+  -e ADMIN_TOKEN="test-token" \
+  -e NODE_ENV="production" \
+  gamedaywire-api
+
+# Test health endpoint
+curl http://localhost:8080/api/health
+```
+
+### 3.10 Supabase PostgreSQL Connection
+
+The database is hosted on **Supabase** (not Fly.io). Ensure your Supabase project:
+
+1. Has SSL mode enabled (add `?sslmode=require` to the connection string)
+2. Uses connection pooling port **6543** for production connections
+3. Has the appropriate network access configured (Supabase allows all IPs by default on Pro plan)
+4. Connection pool settings are adequate (Supabase Pro offers 15 connections minimum)
 
 Run the initial migration from your local machine before deploying:
 
 ```bash
+cd backend
 npx prisma migrate deploy
+cd ..
 ```
-
-### 3.4 Updating the Application
-
-apply.build automatically rebuilds and redeploys when changes are pushed to the connected branch:
-
-```bash
-git push origin main
-```
-
-Alternatively, trigger a manual redeploy from the apply.build dashboard.
-
-### 3.5 Monitoring and Logs
-
-- **Deployment logs**: View build and runtime logs in the apply.build dashboard
-- **Health checks**: The Dockerfile includes a `HEALTHCHECK` that polls `/api/health` every 30 seconds
-- **Application logs**: Access live logs from the dashboard's Logs section
-
-### 3.6 Scaling
-
-apply.build handles container orchestration. For increased capacity:
-
-- Upgrade your apply.build plan for more resources
-- Optimize the in-memory cache (see `backend/src/middleware/cache.ts` — LRU with 10K entries)
-- Ensure Supabase PostgreSQL connection pool limits are adequate (Supabase Pro plan offers 15 connections minimum)
 
 ---
 
@@ -281,7 +392,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: backend/Dockerfile
     ports:
       - '3001:3001'
     volumes:
@@ -342,53 +453,18 @@ volumes:
 
 ### 4.2 Dockerfile — Backend
 
-The root `Dockerfile` is the production backend image. It uses a multi-stage build:
+The production Dockerfile is at `backend/Dockerfile`. It uses a multi-stage build (see [section 3.4](#34-build-process-details) for the full breakdown). The file is extensively commented and serves as the source of truth for the build process.
 
-```dockerfile
-# Root Dockerfile — Multi-stage build
-# Stage 1 (deps): Install pnpm dependencies
-# Stage 2 (build): Generate Prisma Client + compile TypeScript
-# Stage 3 (runner): Minimal production image
+To build the backend image independently:
 
-FROM node:20-slim AS base
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable && corepack prepare pnpm@9 --activate
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
-
-FROM base AS deps
-WORKDIR /app
-COPY pnpm-lock.yaml package.json pnpm-workspace.yaml ./
-COPY backend/package.json ./backend/
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --no-frozen-lockfile
-
-FROM base AS build
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/backend/node_modules ./backend/node_modules
-COPY . .
-RUN pnpm --filter backend build
-
-FROM base AS runner
-WORKDIR /app
-COPY pnpm-lock.yaml package.json pnpm-workspace.yaml ./
-COPY backend/package.json ./backend/
-COPY frontend/package.json ./frontend/
-COPY cron/package.json ./cron/
-RUN pnpm install --no-frozen-lockfile --filter backend
-COPY --from=build /app/backend/dist/ ./backend/dist/
-COPY --from=build /app/backend/prisma/ ./backend/prisma/
-RUN cd backend && ./node_modules/.bin/prisma generate
-RUN rm -rf frontend cron
-ENV NODE_ENV=production
-ENV PORT=8080
-EXPOSE 8080
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD node -e "fetch('http://localhost:8080/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
-CMD npx prisma migrate deploy --schema=backend/prisma/schema.prisma && node backend/dist/index.js
+```bash
+# Build from monorepo root (build context must include pnpm workspace files)
+docker build -f backend/Dockerfile -t gamedaywire-api .
 ```
 
-### 4.3 Dockerfile — Frontend
+### 4.3 Dockerfile — Frontend (if deploying alongside)
+
+The frontend is not deployed on Fly.io. If you need a frontend Dockerfile, see the reference below:
 
 ```dockerfile
 # frontend/Dockerfile
@@ -661,8 +737,6 @@ The `.env` file contains all configuration for the system. Below is the complete
 | `SERPAPI_KEY`                    | Yes      | —                         | SerpAPI key for search data                       |
 | `GROQ_API_KEY`                   | Yes      | —                         | Groq API key for AI generation                    |
 | `GROQ_MODEL`                     | No       | `llama4-70b`              | Groq model for content generation                 |
-| `GOOGLE_INDEXING_CLIENT_EMAIL`   | No       | —                         | GCP service account email                         |
-| `GOOGLE_INDEXING_PRIVATE_KEY`    | No       | —                         | GCP service account private key                   |
 | `GOOGLE_SEARCH_CONSOLE_PROPERTY` | No       | —                         | Search Console property                           |
 | `CLOUDFLARE_API_TOKEN`           | No       | —                         | Cloudflare API token for cache purge              |
 | `CLOUDFLARE_ZONE_ID`             | No       | —                         | Cloudflare zone ID                                |
@@ -696,7 +770,7 @@ The `.env` file contains all configuration for the system. Below is the complete
 | `LOG_LEVEL`                      | No       | `info`                    | Logging level                                     |
 | `NODE_ENV`                       | Yes      | `development`             | Environment (development/production)              |
 
-**For apply.build deployment**: Set these values via the **Settings -> Environment Variables** section of the dashboard. All values are stored as secrets and are never exposed in logs or build output.
+**For Fly.io deployment**: Set these values via `fly secrets set` (see [section 3.3](#33-step-by-step-deployment-guide)). All values are stored as encrypted secrets and are never exposed in logs or build output.
 
 ---
 
@@ -834,9 +908,9 @@ cp .env.bak .env
 pm2 restart sporty-backend
 ```
 
-**apply.build Rollback:**
+**Fly.io Rollback:**
 
-- Redeploy a previous version from the apply.build dashboard by selecting a prior build
+- Redeploy a previous version from the Fly.io dashboard by selecting a prior build or using `fly deploy --image ...`
 - Or push a revert commit to trigger a rebuild of the last known-good state
 
 ---
@@ -903,5 +977,5 @@ console.log('Total pageviews:', j.data.total_pageviews);
 ### 9.5 Database Security
 
 - [ ] PostgreSQL connection uses SSL (enforced by Supabase)
-- [ ] Database credentials stored only in `.env` / apply.build secrets
+- [ ] Database credentials stored only in `.env` / Fly.io secrets
 - [ ] Regular backups configured (see [cron-jobs.md](cron-jobs.md))

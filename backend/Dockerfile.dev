@@ -1,0 +1,61 @@
+# =============================================================================
+# GameDayWire Backend — Dev Dockerfile
+# =============================================================================
+# Development image with hot reload via tsx watch.
+# Use this for local development inside Docker or for Fly.io dev deployments.
+#
+# BUILD CONTEXT: The monorepo ROOT (sporty/), not the backend/ subdirectory.
+#
+# Usage:
+#   Build:
+#     docker build -f backend/Dockerfile.dev -t gamedaywire-api-dev .
+#
+#   Run with hot reload (source mounted as volume):
+#     docker run -it --rm \
+#       -p 3001:3001 \
+#       -v ./backend/src:/app/backend/src \
+#       -v ./backend/prisma:/app/backend/prisma \
+#       -e DATABASE_URL="postgresql://..." \
+#       -e SERPAPI_KEY="..." \
+#       -e GROQ_API_KEY="..." \
+#       gamedaywire-api-dev
+#
+#   With docker-compose (recommended for local dev):
+#     docker compose -f backend/docker-compose.dev.yml up
+#
+# Environment variables are typically loaded from the host's .env file
+# or passed via -e flags. In development, the backend reads .env from
+# the monorepo root when started outside Docker, but inside Docker you
+# should pass them explicitly or mount a .env file.
+# =============================================================================
+
+FROM node:20-alpine
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+
+RUN apk add --no-cache openssl && \
+    corepack enable && \
+    corepack prepare pnpm@9 --activate
+
+WORKDIR /app
+
+# Copy dependency manifests (leveraging Docker layer caching)
+COPY pnpm-lock.yaml package.json pnpm-workspace.yaml ./
+COPY backend/package.json ./backend/
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+    pnpm install --no-frozen-lockfile --filter backend
+
+# Copy Prisma schema and generate client (needed before tsx can run)
+# The source code is expected to be mounted as a volume at runtime
+# so changes are picked up by tsx watch.
+COPY backend/prisma/ ./backend/prisma/
+RUN cd backend && npx prisma generate
+
+EXPOSE 3001
+
+ENV NODE_ENV=development
+
+# Use tsx watch for hot reload — any file change in src/ triggers restart.
+# The source directory should be mounted as a volume at runtime:
+#   -v ./backend/src:/app/backend/src
+CMD ["pnpm", "--filter", "backend", "dev"]

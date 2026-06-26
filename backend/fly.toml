@@ -1,0 +1,126 @@
+# =============================================================================
+# GameDayWire Backend — Fly.io Configuration
+# =============================================================================
+#
+# USAGE:
+#   First deploy (creates the app):
+#     cd /path/to/sporty
+#     fly launch --config backend/fly.toml --dockerfile backend/Dockerfile --no-deploy
+#     fly secrets set DATABASE_URL="postgresql://..."
+#     fly secrets set SERPAPI_KEY="..."
+#     fly secrets set GROQ_API_KEY="..."
+#     fly secrets set ADMIN_TOKEN="..."
+#     fly deploy --config backend/fly.toml
+#
+#   Subsequent deploys:
+#     cd /path/to/sporty  # Must be the monorepo root for pnpm workspace
+#     fly deploy --config backend/fly.toml
+#
+# IMPORTANT: The build context is the monorepo root (sporty/), NOT the
+# backend/ directory. This is because pnpm workspace resolution needs
+# pnpm-lock.yaml, pnpm-workspace.yaml, and root package.json.
+#
+# Fly.io uses the --config fly.toml directory as the build context by default.
+# Using --config backend/fly.toml while running from the project root sets
+# the context to the root directory, which includes all necessary workspace files.
+#
+# Set environment variables as secrets:
+#   fly secrets set DATABASE_URL="postgresql://user:pass@host:6543/postgres?sslmode=require"
+#   fly secrets set SERPAPI_KEY="your-serpapi-key"
+#   fly secrets set GROQ_API_KEY="your-groq-api-key"
+#   fly secrets set ADMIN_TOKEN="your-64-char-hex-token"
+#   fly secrets set WEBHOOK_SECRET="your-webhook-secret"
+#   fly secrets set NODE_ENV="production"
+#
+# View secrets (shows keys only, not values):
+#   fly secrets list
+#
+# Remove a secret (requires redeploy):
+#   fly secrets unset SECRET_NAME
+# =============================================================================
+
+# App name — set to your Fly.io app name.
+# Change this to match your app name after first deploy.
+# "gamedaywire-api" is the default; rename as desired.
+app = "gamedaywire-api"
+
+[build]
+  # Path to Dockerfile, relative to the build context (monorepo root).
+  # The build context is the directory containing fly.toml, which means
+  # it must be accessed from the project root as:
+  #   fly deploy --config backend/fly.toml
+  dockerfile = "backend/Dockerfile"
+
+# =============================================================================
+# HTTP Service Configuration
+# =============================================================================
+
+[http_service]
+  # Internal port must match the Dockerfile's EXPOSE and ENV PORT.
+  # The backend reads PORT from environment; Fly.io sets the internal
+  # port independently — expose 8080 in the container, and map it here.
+  internal_port = 8080
+
+  # Automatically redirect HTTP to HTTPS
+  force_https = true
+
+  # Allow machine to stop when idle (false keeps at least one running)
+  auto_stop_machines = false
+
+  # Auto-start machines on incoming traffic
+  auto_start_machines = true
+
+  # Minimum machines to keep running (1 for production, 0 for dev)
+  min_machines_running = 1
+
+  # Maximum machines to scale to under load
+  max_machines_running = 2
+
+  # Connection concurrency settings
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 50
+    soft_limit = 25
+
+  # Health check configuration
+  # Polls /api/health every 30s; backend returns 503 if DB is down
+  [http_service.healthcheck]
+    path = "/api/health"
+    method = "GET"
+    interval = "30s"
+    timeout = "10s"
+    grace_period = "15s"
+
+# =============================================================================
+# Environment Variables
+# =============================================================================
+# Non-secret env vars set here. For secrets (API keys, tokens, database URL),
+# use `fly secrets set` instead — they are encrypted at rest and never
+# appear in build logs.
+#
+# Required secrets (set with fly secrets set):
+#   DATABASE_URL    — Supabase PostgreSQL connection string
+#   SERPAPI_KEY     — SerpAPI key for search data
+#   GROQ_API_KEY    — Groq API key for AI content generation
+#   ADMIN_TOKEN     — 64-char hex token for admin authentication
+#
+# Optional secrets:
+#   WEBHOOK_SECRET  — HMAC secret for webhook verification
+
+[env]
+  NODE_ENV = "production"
+  # PORT is set to 8080 in the Dockerfile's ENV instruction.
+  # If you change Dockerfile's PORT, change it here too, or
+  # uncomment the line below:
+  # PORT = "8080"
+
+# =============================================================================
+# VM Configuration
+# =============================================================================
+# Fly.io shared CPU machines are cost-effective for a blog backend.
+# Upgrade to dedicated CPUs if the app needs consistent performance.
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

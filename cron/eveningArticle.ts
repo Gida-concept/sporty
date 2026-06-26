@@ -12,7 +12,6 @@ import TextAnalyzer from '../backend/src/services/TextAnalyzer.js';
 import ArticleBuilder from '../backend/src/services/ArticleBuilder.js';
 import LinkManager from '../backend/src/services/LinkManager.js';
 import ImageHandler from '../backend/src/services/ImageHandler.js';
-import GoogleIndexingAPI from '../backend/src/lib/GoogleIndexingAPI.js';
 import Publisher from '../backend/src/services/Publisher.js';
 import type { CronResult, CronOptions } from './types.js';
 
@@ -39,8 +38,7 @@ export async function execute(options: CronOptions = {}): Promise<CronResult> {
     const articleBuilder = new ArticleBuilder(seoOptimizer, schemaBuilder, textAnalyzer);
     const linkManager = new LinkManager(prisma);
     const imageHandler = new ImageHandler();
-    const googleIndexing = new GoogleIndexingAPI();
-    const publisher = new Publisher(prisma, imageHandler, googleIndexing);
+    const publisher = new Publisher(prisma, imageHandler);
 
     // Pipeline
     const trends = await trendFinder.discover(category, ['us', 'gb']);

@@ -1,20 +1,13 @@
-# GameDayWire Backend -- Multi-stage Dockerfile (apply.build / Docker-compatible)
-# Build: 2026-06-25-v2 — apply.build deployment migration
-# Builds a minimal production image with:
-#   - Compiled TypeScript (via tsc)
-#   - Prisma Client (generated)
-#   - Supabase PostgreSQL database connection (connection string from environment)
+# =============================================================================
+# GameDayWire Backend -- LEGACY Dockerfile
+# =============================================================================
+# This Dockerfile is superseded by backend/Dockerfile.
+# It is kept for reference but all new deployments should use:
+#   docker build -f backend/Dockerfile -t gamedaywire-api .
 #
-# Deploy to apply.build (primary):
-#   1. Push code to GitHub
-#   2. Go to apply.build -> Create App -> Connect GitHub repo
-#   3. Choose Dockerfile build mode
-#   4. Set environment variables via apply.build dashboard
-#   5. Deploy
-#
-# Deploy elsewhere: This Dockerfile is platform-agnostic.
-# Set DATABASE_URL and all other env vars via your platform's secrets manager.
-# See docs/deployment.md for complete setup instructions.
+# See backend/Dockerfile for the production multi-stage build.
+# See docs/deployment.md section 3 for Fly.io deployment instructions.
+# =============================================================================
 
 # ---- Base ----
 FROM node:20-slim AS base

@@ -79,20 +79,8 @@ GET /api/health
 ```json
 {
   "status": "degraded",
-  "checks": {
-    "google_indexing_api": {
-      "status": "error",
-      "last_success": "2026-06-18T08:00:00Z",
-      "message": "OAuth token expired"
-    }
-  },
-  "alerts": [
-    {
-      "severity": "error",
-      "message": "Google Indexing API authentication failed",
-      "since": "2026-06-18T08:00:00Z"
-    }
-  ]
+  "checks": {},
+  "alerts": []
 }
 ```
 

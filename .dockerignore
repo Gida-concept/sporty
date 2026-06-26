@@ -1,0 +1,70 @@
+# =============================================================================
+# GameDayWire — Root .dockerignore
+# =============================================================================
+# This file must exist at the Docker build context root.
+# When building with `-f backend/Dockerfile`, the context is the monorepo
+# root, so this file lives here.
+#
+# Also mirrored in backend/.dockerignore for reference.
+# =============================================================================
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Version control
+.git/
+.gitignore
+
+# Build output
+dist/
+.next/
+out/
+
+# Tests and coverage
+tests/
+coverage/
+playwright-report/
+test-results/
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Documentation (not needed at runtime)
+docs/
+*.md
+README.md
+LICENSE
+
+# Other workspaces (not needed for backend-only build)
+frontend/
+cron/
+scripts/
+
+# IDE and OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Cache
+cache/
+.turbo/
+*.tsbuildinfo
+
+# Database files
+*.db
+*.db-journal
+
+# Docker files (don't nest Docker contexts)
+docker-compose*.yml

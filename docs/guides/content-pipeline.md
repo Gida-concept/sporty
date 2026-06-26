@@ -437,7 +437,7 @@ Flow:
 
 ```
 Finalized Article -> PostgreSQL Save -> SitemapManager Update XML
-GoogleIndexingAPI Ping -> RSSFeed Update -> Cache Invalidate
+RSSFeed Update -> Cache Invalidate
 ```
 
 The Publisher:
@@ -445,13 +445,10 @@ The Publisher:
 - Generates HTML from content blocks with proper schema
 - Saves article to PostgreSQL via Prisma
 - Updates XML sitemap via SitemapManager
-- Pings Google Indexing API (new articles: `URL_NOTIFICATION`, updates: `URL_UPDATED`)
 - Updates RSS feed via RSSFeed (full-text RSS 2.0 for Google Discover eligibility)
 - Invalidates relevant caches (ISR, in-memory)
 - Logs publication metrics
 - Sends notification if quality gates fail
-
-**Indexing API:** Retry up to 3 times on failure with exponential backoff. Log all indexing API responses.
 
 **Sitemap Intelligence:**
 
@@ -479,12 +476,11 @@ The Publisher:
 ```
 Identify Stale Articles -> SerpAPI Fresh Data Fetch -> Content Refresh Guide -> GroqWriter Rewrite Sections
 Preserve URL & Backlinks <- Update PostgreSQL dateModified <- SEO Re-optimize <- Link Re-inject
-Re-ping Indexing API -> Cache Invalidate
+Cache Invalidate
 ```
 
 1. Generate new Content Guide with updated SerpAPI data
 2. Rewrite affected sections only (preserve URL and core structure)
 3. Update `dateModified` schema
 4. Add "Updated [Date]" badge visible to readers
-5. Re-ping Indexing API
-6. Log refresh in system_logs
+5. Log refresh in system_logs

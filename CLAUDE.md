@@ -8,7 +8,7 @@ GameDayWire is a **programmatic SEO blog engine** that autonomously generates sp
 
 **This is a greenfield project.** The full architecture is specified in `docs/` but no source code has been written yet. The documentation is the source of truth for all design decisions.
 
-**Stack:** Next.js 15 (App Router) + Tailwind CSS → Express.js + Prisma ORM + PostgreSQL (Supabase) → SerpAPI + Groq API + Google Indexing API
+**Stack:** Next.js 15 (App Router) + Tailwind CSS → Express.js + Prisma ORM + PostgreSQL (Supabase) → SerpAPI + Groq API
 
 ## Build & Development Commands
 
@@ -74,7 +74,7 @@ sporty/
 │   │   ├── routes/    # 21 route handlers (8 public + 13 admin)
 │   │   ├── services/  # 23 business logic services
 │   │   ├── middleware/ # Auth, rate limiting, error handling, validation, cache
-│   │   ├── lib/       # External API clients (SerpAPI, Groq, Google Indexing)
+│   │   ├── lib/       # External API clients (SerpAPI, Groq)
 │   │   └── config/    # Environment config loader
 │   ├── prisma/        # Schema (9 models), migrations, seed
 │   └── tests/         # Vitest unit + integration tests
@@ -103,7 +103,7 @@ SerpAPI (Search Data) → Express Backend (Services) → PostgreSQL (via Prisma/
 4. **AI Content Generation** — Groq with structured prompt → JSON-validated output → quality gates
 5. **SEO Optimization** — Title formula engine → meta generation → schema markup → heading validation
 6. **Intelligent Linking** — TF-IDF similarity matching → tier 1/2 source citations → link graph
-7. **Publishing** — Sitemap update → RSS feed → Google Indexing API ping → cache invalidation
+7. **Publishing** — Sitemap update → RSS feed → cache invalidation
 
 ### Key Architectural Principles
 
@@ -129,8 +129,6 @@ SerpAPI (Search Data) → Express Backend (Services) → PostgreSQL (via Prisma/
 
 - **SerpAPI** (`backend/src/lib/SerpAPI.ts`) — Trends, SERP analysis, keyword validation, news, PAA, related searches
 - **Groq API** (`backend/src/lib/GroqAPI.ts`) — Llama 4 70B (primary), Mixtral 8x7B (fallback), temp 0.3, max 4096 tokens, JSON mode
-- **Google Indexing API** (`backend/src/lib/GoogleIndexingAPI.ts`) — OAuth 2.0 service account, URL notification for new/updated content
-
 ### Cron Jobs (9 scheduled tasks)
 
 | Job               | Schedule (UTC)      | Purpose                                                 |
@@ -173,7 +171,7 @@ The project is greenfield. Build in this order:
 
 1. **Backend foundation** — Express app bootstrap, config loader, middleware stack (auth, rate limiting, error handler, cache)
 2. **Database** — Prisma schema, migrations, seed script
-3. **External API clients** — SerpAPI, GroqAPI, GoogleIndexingAPI wrappers
+3. **External API clients** — SerpAPI, GroqAPI wrappers
 4. **Core services** — TrendFinder → KeywordMatrix → ContentGuide → GroqWriter → ArticleBuilder
 5. **SEO services** — SEOOptimizer, TitleEngine, MetaBuilder, SchemaBuilder, SitemapManager, RSSFeed
 6. **Linking & publishing** — LinkManager, Publisher, ImageHandler

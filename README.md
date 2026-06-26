@@ -52,7 +52,7 @@ SerpAPI (Search Data) → Express Backend (Services) → PostgreSQL (via Prisma/
 4. **AI Content Generation** — Groq with structured prompt → JSON output → quality gates
 5. **SEO Optimization** — Title formula → meta gen → schema markup → heading validation
 6. **Intelligent Linking** — TF-IDF similarity → tier 1/2 citations → link graph
-7. **Publishing** — Sitemap update → RSS feed → Google Indexing API → cache invalidation
+7. **Publishing** — Sitemap update → RSS feed → cache invalidation
 
 ---
 

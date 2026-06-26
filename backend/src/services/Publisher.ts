@@ -1,7 +1,4 @@
-import { config } from '../config/index.js';
 import { AppError } from '../middleware/errorHandler.js';
-import GoogleIndexingAPI from '../lib/GoogleIndexingAPI.js';
-import SiteSettingsService from '../services/SiteSettingsService.js';
 import { PrismaClient, Article } from '@prisma/client';
 
 /**
@@ -111,12 +108,10 @@ const BANNED_PHRASES = [
 class Publisher {
   private prisma: PrismaClient;
   private imageHandler: ImageHandler;
-  private googleIndexing: GoogleIndexingAPI;
 
-  constructor(prisma: PrismaClient, imageHandler: ImageHandler, googleIndexing: GoogleIndexingAPI) {
+  constructor(prisma: PrismaClient, imageHandler: ImageHandler) {
     this.prisma = prisma;
     this.imageHandler = imageHandler;
-    this.googleIndexing = googleIndexing;
   }
 
   // -----------------------------------------------------------------------
@@ -179,28 +174,7 @@ class Publisher {
         },
       });
 
-      // 5. Notify Google Indexing API if enabled
-      const ss = SiteSettingsService.getInstance();
-      const baseUrl = (await ss.getSiteUrl()).replace(/\/+$/, '');
-      const articleUrl = `${baseUrl}/article/${articleData.slug}`;
-
-      if (config.googleIndexingEnabled) {
-        try {
-          await this.googleIndexing.notify(articleUrl, 'URL_UPDATED');
-        } catch (err) {
-          // Non-fatal — log and continue
-          await this.prisma.systemLog.create({
-            data: {
-              logType: 'publisher',
-              severity: 'warn',
-              message: `Google Indexing notification failed for "${articleData.slug}"`,
-              metadata: JSON.stringify({ error: String(err), url: articleUrl }),
-            },
-          });
-        }
-      }
-
-      // 6. Log the publication
+      // 5. Log the publication
       await this.prisma.systemLog.create({
         data: {
           logType: 'publisher',

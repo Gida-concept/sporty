@@ -157,7 +157,7 @@ See [Getting Started](./getting-started.md) for the complete setup guide includi
 4. **AI Content Generation** — Groq with structured prompt → JSON-validated output → quality gates
 5. **SEO Optimization** — Title formula engine → meta generation → schema markup → heading validation
 6. **Intelligent Linking** — TF-IDF similarity matching → tier 1/2 source citations → link graph
-7. **Publishing** — Sitemap update → RSS feed → Google Indexing API ping → cache invalidation
+7. **Publishing** — Sitemap update → RSS feed → cache invalidation
 
 See [Architecture](./guides/architecture.md) and [Content Pipeline](./guides/content-pipeline.md) for complete details.
 

@@ -32,11 +32,6 @@ export interface AppConfig {
   serpApiKey: string;
   groqApiKey: string;
 
-  // Google Indexing API (tied to secret credentials)
-  googleIndexingEnabled: boolean;
-  googleServiceAccountEmail: string;
-  googlePrivateKey: string;
-
   // Auth secrets — stay in .env
   adminToken: string;
   webhookSecret: string;
@@ -64,10 +59,6 @@ export const config: AppConfig = {
 
   serpApiKey: envString('SERPAPI_KEY'),
   groqApiKey: envString('GROQ_API_KEY'),
-
-  googleIndexingEnabled: envBool('GOOGLE_INDEXING_ENABLED', false),
-  googleServiceAccountEmail: envString('GOOGLE_INDEXING_CLIENT_EMAIL'),
-  googlePrivateKey: envString('GOOGLE_INDEXING_PRIVATE_KEY'),
 
   adminToken: _adminTokenResult.token,
   webhookSecret: envString('WEBHOOK_SECRET', 'dev-webhook-secret'),

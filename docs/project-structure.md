@@ -172,8 +172,7 @@ sportytainment/
 │   │   │
 │   │   ├── lib/                      # External API clients
 │   │   │   ├── SerpAPI.ts            # SerpAPI client wrapper
-│   │   │   ├── GroqAPI.ts            # Groq API client wrapper
-│   │   │   └── GoogleIndexingAPI.ts  # Google Indexing API client
+│   │   │   └── GroqAPI.ts            # Groq API client wrapper
 │   │   │
 │   │   └── config/                   # Configuration
 │   │       └── index.ts              # Environment config loader
@@ -362,7 +361,6 @@ sportytainment/
 | ---------------------- | --------------- | ---------------------------------------------------- |
 | `SerpAPI.ts`           | SerpAPI         | Trends, SERP analysis, keyword validation, news, PAA |
 | `GroqAPI.ts`           | Groq            | AI content generation via Llama 4 / Mixtral          |
-| `GoogleIndexingAPI.ts` | Google Indexing | URL notification for new/updated content             |
 
 ### Middleware (`src/middleware/`)
 
