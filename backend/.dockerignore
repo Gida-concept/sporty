@@ -2,16 +2,16 @@
 # GameDayWire Backend — .dockerignore
 # =============================================================================
 # This file tells Docker which files to exclude from the build context.
-# Apply it by placing this file at the root of the Docker build context
-# (the monorepo root when building with `-f backend/Dockerfile`).
+# NOTE: Docker reads .dockerignore from the build context root (the monorepo
+# root), not from the directory containing the Dockerfile. For this file to
+# take effect, Docker requires a .dockerignore at the build context root.
 #
-# To use this from the monorepo root:
-#   Copy or symlink:   cp backend/.dockerignore .dockerignore
-#   Or build with:     docker build -f backend/Dockerfile -t api $(cat backend/.dockerignore | while read line; do echo "--ignore $line"; done)
+# When building with:
+#   docker build -f backend/Dockerfile .
 #
-# For Fly.io, place this file at the monorepo root before deploying:
-#   cp backend/.dockerignore .dockerignore
-#   fly deploy --config backend/fly.toml
+# Docker looks for .dockerignore in the build context (the '.' directory).
+# If you need build context exclusions, place a .dockerignore at the project
+# root with the same contents as this file.
 # =============================================================================
 
 # Dependencies

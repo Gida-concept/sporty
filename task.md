@@ -52,28 +52,37 @@ The Docker configuration lives in `backend/` and is designed for Fly.io. Key arc
 
 | File | Description |
 |------|-------------|
-| `.dockerignore` | Created root-level dockerignore for Docker build context |
 | `docs/deployment.md` | Replaced apply.build section with Fly.io deployment guide (section 3) |
-| `Dockerfile` | Updated header comments to mark as legacy, reference backend/Dockerfile |
 | `.env.example` | Updated apply.build reference to Fly.io |
+
+### Files Deleted (Cleanup)
+
+| File | Description |
+|------|-------------|
+| `Dockerfile` | Root legacy Dockerfile removed (only `backend/Dockerfile` is authoritative) |
+| `.dockerignore` | Root dockerignore removed (only `backend/.dockerignore` is authoritative) |
 
 ---
 
-## Completed — 2026-06-26 — Backend Dockerization for Fly.io
+## Completed — 2026-06-26 — Backend Dockerization for Fly.io (Cleaned)
 
 ### What Was Done
-Created 4 new Docker configuration files in `backend/`, created root `.dockerignore`, updated deployment docs with Fly.io instructions, and cleaned up all remaining apply.build references.
+Created 4 Docker configuration files in `backend/`. Fixed the `backend/Dockerfile` build stage to correctly copy `backend/` into `/app/backend/` (was incorrectly copying into `/app/` root, breaking workspace resolution). Deleted root `Dockerfile` and root `.dockerignore` so all Docker configuration lives exclusively in `backend/`.
 
-### Files Created
+### Files Created (in backend/)
 - `C:\Users\USCHIP\Desktop\sporty\backend\Dockerfile` — Multi-stage production Dockerfile (4 stages: base, deps, build, runner)
 - `C:\Users\USCHIP\Desktop\sporty\backend\.dockerignore` — Docker build context exclusions
 - `C:\Users\USCHIP\Desktop\sporty\backend\fly.toml` — Fly.io app configuration with health checks, scaling, secrets management
 - `C:\Users\USCHIP\Desktop\sporty\backend\Dockerfile.dev` — Dev mode with tsx watch hot reload
-- `C:\Users\USCHIP\Desktop\sporty\.dockerignore` — Root-level dockerignore for Docker builds from monorepo root
+
+### Files Deleted
+- `C:\Users\USCHIP\Desktop\sporty\Dockerfile` — Root legacy Dockerfile (superseded by backend/Dockerfile)
+- `C:\Users\USCHIP\Desktop\sporty\.dockerignore` — Root dockerignore (superseded by backend/.dockerignore; Docker reads .dockerignore from build context root, so copy or symlink backend/.dockerignore if needed)
 
 ### Files Modified
-- `C:\Users\USCHIP\Desktop\sporty\docs\deployment.md` — Replaced section 3 (apply.build) with Fly.io deployment guide; updated section 4 to reference `backend/Dockerfile`; cleaned up all apply.build references
-- `C:\Users\USCHIP\Desktop\sporty\Dockerfile` — Updated header to mark as legacy, reference `backend/Dockerfile`
+- `C:\Users\USCHIP\Desktop\sporty\backend\Dockerfile` — Fixed `COPY backend/ .` to `COPY backend/ ./backend/` so source files land in `/app/backend/` where pnpm workspace expects them
+- `C:\Users\USCHIP\Desktop\sporty\backend\.dockerignore` — Updated header to remove instructions about copying to monorepo root
+- `C:\Users\USCHIP\Desktop\sporty\docs\deployment.md` — Replaced section 3 (apply.build) with Fly.io deployment guide; updated section 4 to reference `backend/Dockerfile`; cleaned up all apply.build references; removed "mirror at project root" language
 - `C:\Users\USCHIP\Desktop\sporty\.env.example` — Updated apply.build reference to Fly.io
 
 ### Key Design Decisions
@@ -86,11 +95,12 @@ Created 4 new Docker configuration files in `backend/`, created root `.dockerign
 - HEALTHCHECK polling `/api/health` every 30 seconds
 - pnpm `--frozen-lockfile` for reproducible builds
 - pnpm `--filter backend` to install only backend workspace dependencies
+- Build stage uses `COPY backend/ ./backend/` (not `COPY backend/ .`) so source files land in `/app/backend/` matching workspace layout
 
 **Build context requirement:**
 - Must be the monorepo root so pnpm can resolve `pnpm-lock.yaml`, `pnpm-workspace.yaml`, and root `package.json`
 - `fly deploy --config backend/fly.toml` from the monorepo root sets the context correctly
-- `.dockerignore` at root excludes `node_modules/`, `.git/`, `tests/`, `coverage/`, `docs/`, `frontend/`, `cron/`, etc.
+- Docker reads `.dockerignore` from build context root; copy `backend/.dockerignore` to project root if build context exclusions are needed
 
 **Fly.io configuration:**
 - Internal port 8080 (matches Dockerfile EXPOSE)
@@ -101,13 +111,13 @@ Created 4 new Docker configuration files in `backend/`, created root `.dockerign
 - Instructions for `fly secrets set` for all sensitive env vars
 
 ### Verification
-- [x] `backend/Dockerfile` — 4-stage build, alpine, non-root, healthcheck, pnpm workspace
-- [x] `backend/.dockerignore` — Comprehensive exclusions for backend Docker builds
+- [x] Root `Dockerfile` deleted
+- [x] Root `.dockerignore` deleted
+- [x] `backend/Dockerfile` — `COPY backend/ ./backend/` fixed, 4-stage build still intact
+- [x] `backend/.dockerignore` — Header updated, no root-copy instructions
 - [x] `backend/fly.toml` — Correct Fly.io config with health checks, scaling, build settings
 - [x] `backend/Dockerfile.dev` — Dev mode with tsx watch, hot-reload capable
-- [x] `.dockerignore` — Root-level exclusions matching backend/.dockerignore
-- [x] `docs/deployment.md` — Section 3 replaced with Fly.io deployment; all apply.build references removed
-- [x] `Dockerfile` (legacy) — Header updated to reference backend/Dockerfile
+- [x] `docs/deployment.md` — Updated dockerignore reference, no root Dockerfile references
 - [x] No remaining apply.build references in the codebase
 - [x] No dangling imports or broken references
 

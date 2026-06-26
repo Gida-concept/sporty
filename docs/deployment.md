@@ -160,7 +160,7 @@ All Docker and Fly.io configuration resides in the `backend/` directory:
 |------|---------|
 | `backend/Dockerfile` | Multi-stage production Docker image |
 | `backend/Dockerfile.dev` | Dev mode with hot reload (tsx watch) |
-| `backend/.dockerignore` | Docker build context exclusions (mirror at project root) |
+| `backend/.dockerignore` | Docker build context exclusions (place at project root for Docker to pick it up) |
 | `backend/fly.toml` | Fly.io app configuration |
 
 ### 3.3 Step-by-Step Deployment Guide

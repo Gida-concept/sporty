@@ -55,7 +55,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/backend/node_modules ./backend/node_modules
-COPY backend/ .
+COPY backend/ ./backend/
 RUN pnpm --filter backend build
 
 # ---- Stage 4: Runner (production image) ----
