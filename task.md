@@ -148,3 +148,30 @@ Fly.io builds were failing because the Dockerfile had bugs in npm workspace reso
 
 ---
 
+## Phase 16.5: Root fly.toml for Fly.io GitHub Integration ✅
+
+**Goal:** Create a root `fly.toml` so Fly.io GitHub integration can find the backend config instead of auto-generating a stock Dockerfile.
+
+### Problem
+Fly.io GitHub integration looks for `fly.toml` at the **project root**. Our config only existed at `backend/fly.toml`, so Fly.io couldn't find it and auto-generated a stock 977-byte Dockerfile instead of using our custom 5,319-byte `backend/Dockerfile`.
+
+### Fix Applied
+- Created `C:\Users\USCHIP\Desktop\sporty\fly.toml` — a complete, self-contained Fly.io config that mirrors `backend/fly.toml` but uses `dockerfile = "backend/Dockerfile"` (relative to the monorepo root).
+
+### Files Created
+- `C:\Users\USCHIP\Desktop\sporty\fly.toml` — Root Fly.io config for GitHub integration
+
+### Files Verified (No Changes Needed)
+- `C:\Users\USCHIP\Desktop\sporty\backend\fly.toml` — Untouched; still works for local deploys with `fly deploy --config backend/fly.toml`
+- `C:\Users\USCHIP\Desktop\sporty\backend\Dockerfile` — Still the custom multi-stage build
+- `C:\Users\USCHIP\Desktop\sporty\backend\.dockerignore` — Verified it doesn't exclude `fly.toml` or any needed files; note that Docker reads `.dockerignore` from the build context root, so this file has no effect on actual builds (it's documentation only)
+- Root `.dockerignore` — Confirmed deleted (not present); glob only finds `backend/.dockerignore`
+
+### Key Design Decision
+- The root `fly.toml` is a **complete config**, not a stub. Fly.io GitHub integration reads it directly and doesn't cascade to `backend/fly.toml`, so it must be self-sufficient.
+- All settings match `backend/fly.toml`: app name `gamedaywire-api`, internal port `8080`, health check at `/api/health`, concurrency `50/25`, VM `512mb` shared CPU, `NODE_ENV=production`.
+- Secrets are not duplicated or hardcoded — they remain in `fly secrets set`.
+- `backend/fly.toml` is unchanged and remains the authoritative config for local `fly deploy --config backend/fly.toml` usage.
+
+---
+

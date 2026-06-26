@@ -1,0 +1,72 @@
+# =============================================================================
+# GameDayWire — Root fly.toml
+# =============================================================================
+#
+# This file enables Fly.io GitHub integration to find the backend
+# configuration automatically. Fly.io looks for fly.toml at the project
+# root; without this file, it auto-generates a stock Dockerfile instead
+# of using our custom backend/Dockerfile.
+#
+# The build context is the monorepo root (sporty/), which is required
+# for npm workspace resolution. All secrets are set via `fly secrets set`
+# and must remain out of version control.
+#
+# See backend/fly.toml for the authoritative local-deploy configuration
+# and full usage instructions.
+# =============================================================================
+
+# App name — must match backend/fly.toml
+app = "gamedaywire-api"
+
+[build]
+  # Dockerfile path, relative to monorepo root (the build context).
+  dockerfile = "backend/Dockerfile"
+
+# =============================================================================
+# HTTP Service Configuration
+# =============================================================================
+
+[http_service]
+  # Internal port must match Dockerfile's EXPOSE 8080 and ENV PORT=8080
+  internal_port = 8080
+
+  # Redirect HTTP to HTTPS
+  force_https = true
+
+  # Keep at least one machine running in production
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+  max_machines_running = 2
+
+  # Connection concurrency
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 50
+    soft_limit = 25
+
+  # Health check — polls /api/health every 30s
+  [http_service.healthcheck]
+    path = "/api/health"
+    method = "GET"
+    interval = "30s"
+    timeout = "10s"
+    grace_period = "15s"
+
+# =============================================================================
+# Environment Variables (non-secret only)
+# =============================================================================
+# Secrets (DB_URL, API keys, tokens) must be set with `fly secrets set`.
+# See backend/fly.toml for the full list of required secrets.
+
+[env]
+  NODE_ENV = "production"
+
+# =============================================================================
+# VM Configuration
+# =============================================================================
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
