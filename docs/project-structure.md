@@ -224,8 +224,8 @@ sportytainment/
 │   └── cleanup.ts                    # Cache and log cleanup
 │
 ├── docker-compose.yml                # Local dev containers (optional)
-├── package.json                      # Root workspace config (pnpm workspace)
-├── pnpm-workspace.yaml               # pnpm workspace definition
+├── package.json                      # Root workspace config (npm workspace)
+├── package-lock.json                 # npm lockfile
 ├── tsconfig.json                     # Root TypeScript config (base)
 ├── .env.example                      # Environment variable template
 ├── .gitignore                        # Git ignore rules
@@ -419,8 +419,8 @@ See [Cron Jobs](./cron-jobs.md) for complete documentation.
 
 | File                           | Purpose                                                           |
 | ------------------------------ | ----------------------------------------------------------------- |
-| `package.json` (root)          | pnpm workspace root — defines shared scripts and dev dependencies |
-| `pnpm-workspace.yaml`          | Defines workspace packages: `frontend/`, `backend/`, `cron/`      |
+| `package.json` (root)          | npm workspace root — defines shared scripts and dev dependencies |
+| `npm workspaces` (in root)     | Defines workspace packages: `frontend/`, `backend/`, `cron/`      |
 | `tsconfig.json` (root)         | Base TypeScript config extended by all packages                   |
 | `.env.example`                 | Template for environment variables (35+ variables)                |
 | `docker-compose.yml`           | Optional Docker setup for local development                       |

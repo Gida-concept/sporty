@@ -29,7 +29,7 @@ Before starting, ensure your system meets the following requirements.
 | Software | Version                  | Purpose                                    |
 | -------- | ------------------------ | ------------------------------------------ |
 | Node.js  | 20+ (22 LTS recommended) | JavaScript runtime                         |
-| pnpm     | 9+                       | Package manager and workspace orchestrator |
+| npm      | 10+                      | Package manager and workspace orchestrator |
 | Git      | 2.x+                     | Version control                            |
 
 **Optional but Recommended:**
@@ -51,18 +51,18 @@ cd sportytainment
 
 **Step 2: Install Dependencies**
 
-pnpm workspaces install dependencies for all packages (`frontend/`, `backend/`, `cron/`) with a single command:
+npm workspaces install dependencies for all packages (`frontend/`, `backend/`, `cron/`) with a single command:
 
 ```bash
-pnpm install
+npm install
 ```
 
-This installs all dependencies and creates the Prisma client. If you encounter permission errors, ensure you're using pnpm 9+ (`pnpm --version`). If pnpm is not installed globally, install it via `npm install -g pnpm` or your preferred package manager.
+This installs all dependencies and creates the Prisma client. If you encounter permission errors, ensure you're using npm 10+ (`npm --version`).
 
 After installation, verify the workspace structure:
 
 ```bash
-pnpm ls -r
+npm ls --workspaces
 ```
 
 You should see the `frontend`, `backend`, and `cron` packages listed.
@@ -113,7 +113,7 @@ The database is hosted on Supabase and accessed via the `DATABASE_URL` in your `
 Seed the database with initial keywords and reference data:
 
 ```bash
-pnpm seed
+npm run seed
 ```
 
 The seed script populates:
@@ -136,7 +136,7 @@ This opens Prisma Studio, a GUI for browsing your database. You can view all tab
 
 ## 2. Project Structure Overview
 
-The project is a pnpm monorepo with three packages:
+The project is an npm monorepo with three packages:
 
 ```
 sportytainment/
@@ -152,7 +152,7 @@ sportytainment/
 | File                  | Purpose                                                             |
 | --------------------- | ------------------------------------------------------------------- |
 | `package.json`        | Root workspace config — scripts in root can run across all packages |
-| `pnpm-workspace.yaml` | Defines the workspace packages                                      |
+| `npm workspaces`      | Defined in root `package.json` — workspace packages: frontend, backend, cron |
 | `tsconfig.json`       | Base TypeScript configuration (extended by all packages)            |
 | `.env.example`        | Template for all environment variables                              |
 | `docker-compose.yml`  | Optional Docker development setup                                   |
@@ -288,7 +288,7 @@ This drops all data and re-applies migrations. Never run this in production.
 Start both the frontend and backend simultaneously:
 
 ```bash
-pnpm dev
+npm run dev
 ```
 
 This runs:
@@ -300,20 +300,20 @@ Or start them individually:
 
 ```bash
 # Frontend only
-pnpm --filter frontend dev
+npm run dev -w frontend
 
 # Backend only
-pnpm --filter backend dev
+npm run dev -w backend
 ```
 
 ### 5.2 Production Build
 
 ```bash
 # Build both packages
-pnpm build
+npm run build
 
 # Start production servers
-pnpm start
+npm run start
 ```
 
 ### 5.3 Testing Cron Jobs
@@ -328,7 +328,7 @@ trendMonitor({ dryRun: true }).then(console.log).catch(console.error);
 "
 
 # Or using the cron test script:
-pnpm cron:dry-run trendMonitor
+npm run cron:dry-run -- trendMonitor
 ```
 
 ---
@@ -472,16 +472,16 @@ import('node:fs').then(fs => {
 
 ```bash
 # Run all backend tests
-pnpm test
+npm run test
 
 # Run frontend tests
-pnpm --filter frontend test
+npm run test -w frontend
 
 # Run e2e tests
-pnpm test:e2e
+npm run test:e2e
 
 # Run tests with coverage
-pnpm test -- --coverage
+npm run test -- --coverage
 ```
 
 ### 7.2 Test Structure
@@ -538,13 +538,13 @@ v2.0.0      -> Breaking change
 
 ```bash
 # Run type checking across all packages
-pnpm typecheck
+npm run typecheck
 
 # Run tests
-pnpm test
+npm run test
 
 # Lint
-pnpm lint
+npm run lint
 ```
 
 ---
@@ -598,28 +598,28 @@ The `.env` file lives at the project root and is shared across all packages. Pri
 ```bash
 # Prerequisites
 node --version    # Must be 20+
-pnpm --version    # Must be 9+
+npm --version     # Must be 10+
 
 # Setup
 git clone https://github.com/your-username/sportytainment.git
 cd sportytainment
-pnpm install
+npm install
 cp .env.example .env
 # Edit .env with your API keys
 npx prisma migrate dev --name init
-pnpm seed
+npm run seed
 
 # Run
-pnpm dev
+npm run dev
 
 # Verify
 curl http://localhost:3000
 curl http://localhost:3001/api/health
 
 # Test
-pnpm test
+npm run test
 
 # Build for production
-pnpm build
-pnpm start
+npm run build
+npm run start
 ```

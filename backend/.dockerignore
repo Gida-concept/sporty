@@ -16,8 +16,8 @@
 
 # Dependencies
 node_modules/
-.pnpm-store/
-.pnpm-home/
+# npm cache dir (rarely present in build context, but excludes it if so)
+.npm/
 
 # Version control
 .git/

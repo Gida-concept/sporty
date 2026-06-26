@@ -59,7 +59,7 @@ SerpAPI (Search Data) -> Express Backend (Services) -> PostgreSQL (via Prisma/Su
 | **CDN**             | Cloudflare                               | Free tier                | Global asset delivery, SSL, DDoS protection           |
 | **Cron**            | node-cron                                | —                        | Scheduled task execution (9 jobs)                     |
 | **Testing**         | Vitest + Playwright                      | —                        | Unit, integration, e2e testing                        |
-| **Package Manager** | pnpm                                     | 9+                       | Monorepo workspace management                         |
+| **Package Manager** | npm                                     | 10+                      | Monorepo workspace management                         |
 | **Version Control** | Git                                      | 2.x+                     | Source code management                                |
 
 ### 2.2 Why This Stack?
@@ -69,14 +69,14 @@ SerpAPI (Search Data) -> Express Backend (Services) -> PostgreSQL (via Prisma/Su
 | **Next.js (App Router)** | Hybrid SSR/SSG/ISR for SEO-optimized pages, built-in image optimization, first-class TypeScript support      |
 | **Express.js**           | Lean, well-understood backend for API endpoints and cron orchestration; easy to deploy anywhere              |
 | **Prisma + PostgreSQL**  | Type-safe database access with Prisma ORM; production database hosted on Supabase with managed backups       |
-| **pnpm workspaces**      | Efficient monorepo management with shared TypeScript configs across frontend/backend/cron                    |
+| **npm workspaces**      | Efficient monorepo management with shared TypeScript configs across frontend/backend/cron                    |
 | **SerpAPI (exclusive)**  | Single provider for all search data — trends, SERP, news, keywords, PAA — simplifies billing and rate limits |
 | **Groq API**             | Fast inference (~800 tokens/sec) with Llama 4, cost-effective at ~$5-10/month for 60 articles                |
 
 ### 2.3 Node.js Requirements
 
 - **Runtime:** Node.js 20+ (22 LTS recommended)
-- **Package Manager:** pnpm 9+
+- **Package Manager:** npm 10+
 - **Environment:** Any Node.js-capable host (development: local machine; production: VPS, Docker, Railway, Render, etc.)
 
 ### 2.4 API Services
@@ -472,7 +472,7 @@ During Phase 1, the admin dashboard is available for monitoring article count, t
 | --------------- | --------------------------------------------------------------------- |
 | SerpAPI outage  | Cache trending data for 24 hours; use fallback trends from RSS feeds  |
 | Groq API outage | Queue articles for retry; use cached content guides for 48 hours      |
-| Server failure  | Restore from Git; `pnpm install`, `pnpm migrate deploy`, `pnpm start` |
+| Server failure  | Restore from Git; `npm ci`, `npm run db:migrate`, `npm run start` |
 
 ---
 

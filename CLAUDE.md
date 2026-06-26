@@ -14,54 +14,54 @@ GameDayWire is a **programmatic SEO blog engine** that autonomously generates sp
 
 ```bash
 # Install all dependencies (frontend + backend + cron)
-pnpm install
+npm install
 
 # Start dev servers (frontend :3000 + backend :3001)
-pnpm dev
+npm run dev
 
 # Type-check all packages
-pnpm typecheck
+npm run typecheck
 
 # Run all backend tests (Vitest)
-pnpm test
+npm run test
 
 # Run backend tests with coverage
-pnpm test -- --coverage
+npm run test -- --coverage
 
 # Run frontend e2e tests (Playwright)
-pnpm test:e2e
+npm run test:e2e
 
 # Lint
-pnpm lint
+npm run lint
 
 # Production build (frontend + backend)
-pnpm build
+npm run build
 
 # Start production servers
-pnpm start
+npm run start
 
 # Run single test file
 npx vitest run backend/tests/services/TrendFinder.test.ts
 
 # Format code
-pnpm format
+npm run format
 
 # Database migration (after schema changes)
 npx prisma migrate dev --name description_of_change
 
 # Seed initial data
-pnpm seed
+npm run seed
 
 # Prisma Studio (database GUI)
 npx prisma studio
 
 # Cron dry-run (test without side effects)
-pnpm cron:dry-run trendMonitor
+npm run cron:dry-run -- trendMonitor
 ```
 
 ## Architecture
 
-### Monorepo Layout (pnpm workspaces)
+### Monorepo Layout (npm workspaces)
 
 ```
 sporty/

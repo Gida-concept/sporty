@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
-.pnpm-store/
+# npm stores cache here; it's fine to leave it, but can be large
+# .npm/_cacache/
 
 # Build output
 dist/

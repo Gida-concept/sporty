@@ -9,21 +9,21 @@ GameDayWire is an autonomous programmatic SEO blog engine that discovers trendin
 ![Tech Stack](https://img.shields.io/badge/Prisma-6.x-2D3748?logo=prisma)
 ![Tech Stack](https://img.shields.io/badge/PostgreSQL-15-336791?logo=postgresql)
 ![Tech Stack](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript)
-![Tech Stack](https://img.shields.io/badge/pnpm-9-F69220?logo=pnpm)
+![Tech Stack](https://img.shields.io/badge/npm-10-CB3837?logo=npm)
 
 ---
 
 ## Quick Start
 
 ```bash
-# Prerequisites: Node.js 20+, pnpm 9+
+# Prerequisites: Node.js 20+, npm 10+
 git clone <repo-url>
 cd gamedaywire
-pnpm install
+npm install
 cp .env.example .env   # Edit with your API keys
 npx prisma migrate dev --name init
-pnpm seed
-pnpm dev
+npm run seed
+npm run dev
 ```
 
 - **Frontend:** http://localhost:3000
@@ -61,7 +61,7 @@ SerpAPI (Search Data) → Express Backend (Services) → PostgreSQL (via Prisma/
 | Software | Version                  | Purpose            |
 | -------- | ------------------------ | ------------------ |
 | Node.js  | 20+ (22 LTS recommended) | JavaScript runtime |
-| pnpm     | 9+                       | Package manager    |
+| npm      | 10+                      | Package manager    |
 | Git      | 2.x+                     | Version control    |
 
 ---
@@ -76,7 +76,7 @@ gamedaywire/
 ├── docs/              # Architecture, API, database documentation
 ├── scripts/           # Seed and utility scripts
 ├── docker-compose.yml # Local development container
-└── package.json       # pnpm workspace root
+└── package.json       # npm workspace root
 ```
 
 See [Project Structure](./docs/project-structure.md) for the complete layout.

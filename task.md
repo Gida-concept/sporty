@@ -4,7 +4,7 @@
 
 | Phase   | What                                                                         | Est. Files | Est. Tasks |
 | ------- | ---------------------------------------------------------------------------- | ---------- | ---------- |
-| **0 ✅**  | Root monorepo setup (pnpm, tsconfig, git, env, eslint, prettier)             | 8 config   | 1          |
+| **0 ✅**  | Root monorepo setup (npm, tsconfig, git, env, eslint, prettier)             | 8 config   | 1          |
 | **1 ✅**  | Frontend foundation — Next.js, Tailwind, layout, UI primitives, static pages | 15+ files  | 2-3        |
 | **2 ✅**  | Frontend pages — article detail, category, tag, SEO pages, dynamic routes    | 15+ files  | 2-3        |
 | **3 ✅**  | Frontend API client library (mock-data-based initially)                      | 5 files    | 1          |
@@ -33,7 +33,7 @@
 The Docker configuration lives in `backend/` and is designed for Fly.io. Key architectural decisions:
 
 1. **Multi-stage Docker build** with `node:20-alpine` — minimal image, best security posture
-2. **Build context** = monorepo root (needed for pnpm workspace resolution of `pnpm-lock.yaml`, `pnpm-workspace.yaml`)
+2. **Build context** = monorepo root (needed for npm workspace resolution of `package-lock.json`)
 3. **Three stages**: `deps` (install), `build` (prisma generate + tsc), `runner` (production minimal)
 4. **Non-root user** in production image
 5. **Prisma client regenerated** in runner stage for correct platform architecture
@@ -80,7 +80,7 @@ Created 4 Docker configuration files in `backend/`. Fixed the `backend/Dockerfil
 - `C:\Users\USCHIP\Desktop\sporty\.dockerignore` — Root dockerignore (superseded by backend/.dockerignore; Docker reads .dockerignore from build context root, so copy or symlink backend/.dockerignore if needed)
 
 ### Files Modified
-- `C:\Users\USCHIP\Desktop\sporty\backend\Dockerfile` — Fixed `COPY backend/ .` to `COPY backend/ ./backend/` so source files land in `/app/backend/` where pnpm workspace expects them
+- `C:\Users\USCHIP\Desktop\sporty\backend\Dockerfile` — Fixed `COPY backend/ .` to `COPY backend/ ./backend/` so source files land in `/app/backend/` where npm workspace expects them
 - `C:\Users\USCHIP\Desktop\sporty\backend\.dockerignore` — Updated header to remove instructions about copying to monorepo root
 - `C:\Users\USCHIP\Desktop\sporty\docs\deployment.md` — Replaced section 3 (apply.build) with Fly.io deployment guide; updated section 4 to reference `backend/Dockerfile`; cleaned up all apply.build references; removed "mirror at project root" language
 - `C:\Users\USCHIP\Desktop\sporty\.env.example` — Updated apply.build reference to Fly.io
@@ -93,12 +93,12 @@ Created 4 Docker configuration files in `backend/`. Fixed the `backend/Dockerfil
 - Prisma client regenerated in runner stage to ensure correct CPU architecture binary (ARM Mac build -> AMD64 Fly.io deploy)
 - Non-root `appuser` (UID 1001) in production for security hardening
 - HEALTHCHECK polling `/api/health` every 30 seconds
-- pnpm `--frozen-lockfile` for reproducible builds
-- pnpm `--filter backend` to install only backend workspace dependencies
+- npm `--workspace` for workspace-scoped installs
+- npm `-w backend` to install only backend workspace dependencies
 - Build stage uses `COPY backend/ ./backend/` (not `COPY backend/ .`) so source files land in `/app/backend/` matching workspace layout
 
 **Build context requirement:**
-- Must be the monorepo root so pnpm can resolve `pnpm-lock.yaml`, `pnpm-workspace.yaml`, and root `package.json`
+- Must be the monorepo root so npm can resolve `package-lock.json` and root `package.json`
 - `fly deploy --config backend/fly.toml` from the monorepo root sets the context correctly
 - Docker reads `.dockerignore` from build context root; copy `backend/.dockerignore` to project root if build context exclusions are needed
 

@@ -531,7 +531,7 @@ This drops all data and re-applies migrations. Never run this in production.
 
 ### Generating Prisma Client
 
-The Prisma client is auto-generated during `pnpm install` and after each migration:
+The Prisma client is auto-generated during `npm install` and after each migration:
 
 ```bash
 npx prisma generate
@@ -557,7 +557,7 @@ Head terms include:
 The seed script is idempotent — running it multiple times will not create duplicate entries.
 
 ```bash
-pnpm seed
+npm run seed
 ```
 
 ---

@@ -30,20 +30,15 @@
 # =============================================================================
 
 FROM node:20-alpine
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
 
-RUN apk add --no-cache openssl && \
-    corepack enable && \
-    corepack prepare pnpm@9 --activate
+RUN apk add --no-cache openssl
 
 WORKDIR /app
 
 # Copy dependency manifests (leveraging Docker layer caching)
-COPY pnpm-lock.yaml package.json pnpm-workspace.yaml ./
+COPY package.json package-lock.json ./
 COPY backend/package.json ./backend/
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --no-frozen-lockfile --filter backend
+RUN npm install
 
 # Copy Prisma schema and generate client (needed before tsx can run)
 # The source code is expected to be mounted as a volume at runtime
@@ -58,4 +53,4 @@ ENV NODE_ENV=development
 # Use tsx watch for hot reload — any file change in src/ triggers restart.
 # The source directory should be mounted as a volume at runtime:
 #   -v ./backend/src:/app/backend/src
-CMD ["pnpm", "--filter", "backend", "dev"]
+CMD ["npm", "run", "dev", "-w", "backend"]

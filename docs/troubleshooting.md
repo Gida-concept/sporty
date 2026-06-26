@@ -20,11 +20,11 @@ A comprehensive guide to diagnosing and resolving common issues. Organized by th
 
 ## 1. Installation Issues
 
-### 1.1 pnpm Install Fails
+### 1.1 npm Install Fails
 
 **Symptoms:**
 
-- `pnpm install` returns errors about network, memory, or version conflicts.
+- `npm install` returns errors about network, memory, or version conflicts.
 - `node_modules/` is empty or incomplete.
 - TypeScript errors about missing modules when running the app.
 
@@ -43,15 +43,14 @@ node -v
 # Windows: Download from https://nodejs.org/
 ```
 
-**pnpm Version Mismatch:**
+**npm Version Mismatch:**
 
 ```bash
-# Check pnpm version
-pnpm -v
+# Check npm version
+npm -v
 
-# Upgrade pnpm
-corepack prepare pnpm@9 --activate
-# Or: npm install -g pnpm@latest
+# Upgrade npm
+npm install -g npm@latest
 ```
 
 **Network Timeouts:**
@@ -59,18 +58,18 @@ If downloads fail due to network issues:
 
 ```bash
 # Retry with a longer timeout
-pnpm install --fetch-timeout=120000
+npm install --timeout=120000
 
 # Use a different registry
-pnpm install --registry https://registry.npmmirror.com
+npm install --registry https://registry.npmmirror.com
 ```
 
 **Corrupt Lockfile:**
 
 ```bash
 # Delete lockfile and node_modules, then reinstall
-rm -rf node_modules pnpm-lock.yaml
-pnpm install
+rm -rf node_modules package-lock.json
+npm install
 ```
 
 ### 1.2 Database Migration Fails
@@ -131,7 +130,7 @@ For PostgreSQL, check connection string and network access instead.
 # Check if the backend server is running
 curl -s http://localhost:3001/api/health
 # If connection refused, start the server:
-pnpm --filter backend dev
+npm run dev -w backend
 ```
 
 **Frontend Not Running:**
@@ -140,7 +139,7 @@ pnpm --filter backend dev
 # Check if the frontend server is running
 curl -s http://localhost:3000
 # If connection refused, start the server:
-pnpm --filter frontend dev
+npm run dev -w frontend
 ```
 
 **Wrong API URL in Frontend:**
@@ -210,7 +209,7 @@ The trend scoring algorithm may filter out all candidates if thresholds are too 
 
 ```bash
 # Run trendMonitor with debug logging
-DEBUG=trends* pnpm --filter backend node -e "
+DEBUG=trends* npm run dev -w backend
 const { trendMonitor } = require('./cron/trendMonitor');
 trendMonitor({ dryRun: true }).then(console.log);
 "
@@ -238,7 +237,7 @@ tail -100 logs/backend/error.log
 
 ```bash
 # Enable Prisma query logging
-DEBUG="prisma:*" pnpm --filter backend dev
+DEBUG="prisma:*" npm run dev -w backend
 ```
 
 **Common API 500 Causes:**
@@ -709,7 +708,7 @@ sitemapGenerator({ dryRun: true }).then(console.log).catch(console.error);
 ```bash
 # Clear sitemap cache
 rm -rf cache/sitemap/*
-pnpm --filter backend dev
+npm run dev -w backend
 ```
 
 **Publisher Not Triggering Update:**
@@ -794,7 +793,7 @@ Add post-generation truncation in `SEOOptimizer.ts`.
 
 ```bash
 # Run with debug level logging
-LOG_LEVEL=debug pnpm --filter backend dev
+LOG_LEVEL=debug npm run dev -w backend
 
 # Or set it in .env
 LOG_LEVEL=debug
@@ -906,15 +905,15 @@ pm2 restart all
 
 # 3. If still failing, reset database (dev only)
 npx prisma migrate reset
-pnpm seed
+npm run seed
 
 # 4. If still failing, clean install
 rm -rf node_modules
-pnpm install
+npm install
 npx prisma generate
 npx prisma migrate dev
-pnpm seed
-pnpm build
+npm run seed
+npm run build
 
 # 5. Restart clean
 pm2 restart all

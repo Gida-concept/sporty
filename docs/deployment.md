@@ -25,7 +25,7 @@ Complete deployment instructions for the Next.js + Express + PostgreSQL (Supabas
 | Software    | Minimum Version | Purpose                                    |
 | ----------- | --------------- | ------------------------------------------ |
 | Node.js     | 20 LTS          | JavaScript runtime                         |
-| pnpm        | 9.x             | Package manager (workspaces)               |
+| npm         | 10.x            | Package manager (workspaces)               |
 | Git         | 2.x             | Version control                            |
 | Code Editor | Any             | VS Code recommended with ESLint + Prettier |
 
@@ -37,7 +37,7 @@ git clone <repository-url>
 cd sporty
 
 # Install all dependencies (both frontend and backend)
-pnpm install
+npm install
 
 # Copy environment file
 cp .env.example .env
@@ -46,13 +46,13 @@ cp .env.example .env
 npx prisma migrate dev
 
 # Seed initial data (keywords, head terms)
-pnpm seed
+npm run seed
 
 # Start development servers (both frontend and backend)
-pnpm dev
+npm run dev
 ```
 
-The `pnpm dev` command starts:
+The `npm run dev` command starts:
 
 - **Next.js frontend** at `http://localhost:3000`
 - **Express backend** at `http://localhost:3001`
@@ -73,17 +73,17 @@ The `pnpm dev` command starts:
 # Check Node.js version
 node -v  # Expect v20.x.x
 
-# Check pnpm version
-pnpm -v  # Expect 9.x
+# Check npm version
+npm -v  # Expect 10.x
 
 # Verify all dependencies are installed
-pnpm ls --depth 0
+npm ls --depth 0
 
 # Verify Prisma client is generated
 ls node_modules/.prisma/client/index.js
 
 # Test the backend starts
-pnpm --filter backend dev &
+npm run dev -w backend &
 sleep 3
 curl -s http://localhost:3001/api/health | head -20
 ```
@@ -96,7 +96,7 @@ curl -s http://localhost:3001/api/health | head -20
 
 ```bash
 # Install all dependencies (including production dependencies)
-pnpm install --frozen-lockfile
+npm ci
 
 # Generate Prisma client
 npx prisma generate
@@ -105,27 +105,27 @@ npx prisma generate
 npx prisma migrate deploy
 
 # Build the Next.js frontend
-pnpm --filter frontend build
+npm run build -w frontend
 
 # Build the Express backend (TypeScript compilation)
-pnpm --filter backend build
+npm run build -w backend
 ```
 
 ### 2.2 Build Output
 
 | Service  | Build Output      | Entry Point                    |
 | -------- | ----------------- | ------------------------------ |
-| Frontend | `frontend/.next/` | `pnpm --filter frontend start` |
+| Frontend | `frontend/.next/` | `npm run start -w frontend`     |
 | Backend  | `backend/dist/`   | `backend/dist/index.js`        |
 
 ### 2.3 Starting Production Servers
 
 ```bash
 # Start backend (Express API on port 3001)
-pnpm --filter backend start
+npm run start -w backend
 
 # Start frontend (Next.js on port 3000, proxying API to 3001)
-pnpm --filter frontend start
+npm run start -w frontend
 ```
 
 For production, use Fly.io, Docker, or PM2 (see sections below) instead of running these directly.
@@ -235,7 +235,7 @@ fly deploy --config backend/fly.toml
 ```
 
 Fly.io will:
-1. Upload the build context (monorepo root — includes `pnpm-lock.yaml` for workspace resolution)
+1. Upload the build context (monorepo root — includes `package-lock.json` for workspace resolution)
 2. Build the Docker image using `backend/Dockerfile` (multi-stage build)
 3. Start the container with your secrets injected as environment variables
 4. Run database migrations automatically via `npx prisma migrate deploy`
@@ -264,7 +264,7 @@ The Dockerfile (`backend/Dockerfile`) uses a 4-stage build:
 
 | Stage | Purpose | Contents |
 |-------|---------|----------|
-| `base` | Alpine base with OpenSSL | `node:20-alpine`, pnpm 9, OpenSSL for Prisma |
+| `base` | Alpine base with OpenSSL | `node:20-alpine`, OpenSSL for Prisma |
 | `deps` | Install dependencies | All deps (including devDeps for Prisma generate + tsc) |
 | `build` | Compile TypeScript + Prisma | `prisma generate`, `npx tsc` |
 | `runner` | Minimal production image | Production deps only, compiled output, Prisma schema, non-root user |
@@ -276,7 +276,7 @@ Key design decisions:
 - **Prisma client regenerated in runner**: Ensures the Prisma query engine binary matches the runtime CPU architecture (critical when building on ARM Macs and deploying on AMD64 Fly.io machines)
 - **Non-root user**: `appuser` (UID 1001) runs the application for security hardening
 - **Health check**: Polls `/api/health` every 30 seconds; returns 503 when database is unreachable
-- **pnpm `--frozen-lockfile`**: Ensures reproducible builds by failing if lockfile is out of date
+- **`npm ci`**: Ensures reproducible builds by failing if lockfile is out of date
 
 ### 3.5 Updating the Application
 
@@ -289,7 +289,7 @@ git push origin main
 fly deploy --config backend/fly.toml
 ```
 
-Fly.io rebuilds the Docker image from scratch on each deploy. The Docker layer cache helps speed this up — dependency layers are cached unless `pnpm-lock.yaml` changes.
+Fly.io rebuilds the Docker image from scratch on each deploy. The Docker layer cache helps speed this up — dependency layers are cached unless `package-lock.json` changes.
 
 ### 3.6 Monitoring and Logs
 
@@ -458,7 +458,7 @@ The production Dockerfile is at `backend/Dockerfile`. It uses a multi-stage buil
 To build the backend image independently:
 
 ```bash
-# Build from monorepo root (build context must include pnpm workspace files)
+# Build from monorepo root (build context must include npm workspace files)
 docker build -f backend/Dockerfile -t gamedaywire-api .
 ```
 
@@ -470,12 +470,12 @@ The frontend is not deployed on Fly.io. If you need a frontend Dockerfile, see t
 # frontend/Dockerfile
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json package-lock.json ./
 COPY frontend/package.json ./frontend/
-RUN corepack enable && pnpm install --frozen-lockfile
+RUN npm ci
 COPY . .
 ENV NODE_ENV=production
-RUN pnpm --filter frontend build
+RUN npm run build -w frontend
 
 FROM node:20-alpine
 WORKDIR /app
@@ -484,7 +484,7 @@ COPY --from=builder /app/frontend/public ./public
 COPY --from=builder /app/frontend/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
 EXPOSE 3000
-CMD ["pnpm", "--filter", "frontend", "start"]
+CMD ["npm", "run", "start", "-w", "frontend"]
 ```
 
 ### 4.4 Running with Docker
@@ -514,11 +514,8 @@ pg_dump "$DATABASE_URL" > ./backups/prod-$(date +%Y%m%d).sql
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt-get install -y nodejs
 
-# Install pnpm globally
-sudo corepack enable && corepack prepare pnpm@9 --activate
-
 # Install PM2 globally
-pnpm add -g pm2
+npm install -g pm2
 
 # Install Nginx
 sudo apt-get install -y nginx
@@ -535,7 +532,7 @@ git clone <repository-url> /var/www/sporty
 cd /var/www/sporty
 
 # Install dependencies
-pnpm install --frozen-lockfile
+npm ci
 
 # Set up environment
 cp .env.example .env
@@ -547,10 +544,10 @@ npx prisma generate
 npx prisma migrate deploy
 
 # Seed initial data
-pnpm seed
+npm run seed
 
 # Build the application
-pnpm build
+npm run build
 ```
 
 ### 5.3 PM2 Configuration
@@ -872,8 +869,8 @@ pm2 list > pre-deploy-pm2-state.txt
 ```bash
 # Restore previous build
 git stash
-pnpm install --frozen-lockfile
-pnpm build
+npm ci
+npm run build
 
 # Restart services
 pm2 reload ecosystem.config.js
@@ -893,8 +890,8 @@ npx prisma generate
 
 # Restore files (same as Scenario A)
 git stash
-pnpm install --frozen-lockfile
-pnpm build
+npm ci
+npm run build
 pm2 reload ecosystem.config.js
 ```
 

@@ -63,14 +63,14 @@ Two articles are published daily — one at 08:00 UTC and one at 19:00 UTC — t
 ## Quick Start
 
 ```bash
-# Prerequisites: Node.js 20+, pnpm 9+, Git
+# Prerequisites: Node.js 20+, npm 10+, Git
 
 # 1. Clone the repository
 git clone https://github.com/your-username/sportytainment.git
 cd sportytainment
 
 # 2. Install dependencies (workspace-wide)
-pnpm install
+npm install
 
 # 3. Configure environment
 cp .env.example .env
@@ -80,10 +80,10 @@ cp .env.example .env
 npx prisma migrate dev
 
 # 5. Seed initial data
-pnpm seed
+npm run seed
 
 # 6. Start development servers (frontend + backend concurrently)
-pnpm dev
+npm run dev
 
 # 7. Verify setup
 curl http://localhost:3000           # Next.js frontend
@@ -113,7 +113,7 @@ See [Getting Started](./getting-started.md) for the complete setup guide includi
 - **Next.js App Router** provides hybrid SSR/SSG/ISR for SEO-optimized pages, built-in image optimization, and excellent DX with TypeScript
 - **Express.js** gives a lean, familiar backend for API endpoints and cron orchestration
 - **Prisma + PostgreSQL (Supabase)** provides type-safe queries, connection pooling, and a fully managed cloud database with automatic backups
-- **pnpm workspaces** keeps the monorepo structured with shared TypeScript configs
+- **npm workspaces** keeps the monorepo structured with shared TypeScript configs
 - Same external APIs (SerpAPI, Groq) — the business logic that makes the system unique is preserved
 
 ---

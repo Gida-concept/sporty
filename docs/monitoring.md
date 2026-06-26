@@ -371,7 +371,7 @@ Enable Prisma query logging for debugging:
 
 ```bash
 # Set log level to see queries
-DEBUG="prisma:query" pnpm --filter backend start
+DEBUG="prisma:query" npm run start -w backend
 
 # Check for slow queries
 grep '"duration_ms":[5-9][0-9][0-9]' logs/backend/app.log

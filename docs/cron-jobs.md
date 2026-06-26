@@ -177,19 +177,19 @@ const { trendMonitor } = require('./cron/trendMonitor');
 trendMonitor({ dryRun: true }).then(console.log).catch(console.error);
 "
 
-# Or using the pnpm script
-pnpm cron:dry-run trendMonitor
+# Or using the npm script
+npm run cron:dry-run -- trendMonitor
 
 # Available dry-run commands
-pnpm cron:dry-run morningArticle
-pnpm cron:dry-run eveningArticle
-pnpm cron:dry-run trendMonitor
-pnpm cron:dry-run keywordRefresh
-pnpm cron:dry-run contentRefresh
-pnpm cron:dry-run sitemapGenerator
-pnpm cron:dry-run linkUpdate
-pnpm cron:dry-run seoAudit
-pnpm cron:dry-run backup
+npm run cron:dry-run -- morningArticle
+npm run cron:dry-run -- eveningArticle
+npm run cron:dry-run -- trendMonitor
+npm run cron:dry-run -- keywordRefresh
+npm run cron:dry-run -- contentRefresh
+npm run cron:dry-run -- sitemapGenerator
+npm run cron:dry-run -- linkUpdate
+npm run cron:dry-run -- seoAudit
+npm run cron:dry-run -- backup
 ```
 
 ### What Dry-Run Disables

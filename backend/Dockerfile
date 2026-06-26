@@ -7,8 +7,8 @@
 #   - Supabase PostgreSQL connection (connection string from environment secrets)
 #
 # BUILD CONTEXT: The monorepo ROOT (sporty/), not the backend/ subdirectory.
-# This is required for pnpm workspace resolution (pnpm-lock.yaml,
-# pnpm-workspace.yaml, and root package.json must be present).
+# This is required for npm workspaces resolution (package-lock.json,
+# and root package.json with workspaces field must be present).
 #
 # Usage:
 #   docker build -f backend/Dockerfile -t gamedaywire-api .
@@ -28,11 +28,7 @@
 # OpenSSL is required by Prisma's database client for TLS connections
 # to Supabase PostgreSQL.
 FROM node:20-alpine AS base
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-RUN apk add --no-cache openssl && \
-    corepack enable && \
-    corepack prepare pnpm@9 --activate
+RUN apk add --no-cache openssl
 WORKDIR /app
 
 # ---- Stage 2: Dependencies ----
@@ -43,10 +39,9 @@ WORKDIR /app
 # metadata BEFORE the source code, Docker can cache this layer and only
 # rebuild when dependencies change (not when source changes).
 FROM base AS deps
-COPY pnpm-lock.yaml package.json pnpm-workspace.yaml ./
+COPY package.json package-lock.json ./
 COPY backend/package.json ./backend/
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile --filter backend
+RUN npm ci
 
 # ---- Stage 3: Build ----
 # Generate Prisma Client and compile TypeScript.
@@ -54,9 +49,8 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
 # (typescript, @types/*) are available without polluting the final image.
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/backend/node_modules ./backend/node_modules
 COPY backend/ ./backend/
-RUN pnpm --filter backend build
+RUN npm run build -w backend
 
 # ---- Stage 4: Runner (production image) ----
 # Minimal runtime image. Contains only:
@@ -71,14 +65,13 @@ FROM base AS runner
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 appuser
 
-# Install only production dependencies. The --prod flag excludes
+# Install only production dependencies. The --omit=dev flag excludes
 # devDependencies, reducing image size and attack surface.
 # prisma CLI is in production dependencies so prisma migrate deploy
 # and prisma generate work at runtime.
-COPY pnpm-lock.yaml package.json pnpm-workspace.yaml ./
+COPY package.json package-lock.json ./
 COPY backend/package.json ./backend/
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile --filter backend --prod
+RUN npm ci --omit=dev
 
 # Copy compiled TypeScript output from the build stage
 COPY --from=build /app/backend/dist/ ./backend/dist/
@@ -95,11 +88,10 @@ COPY --from=build /app/backend/prisma/ ./backend/prisma/
 RUN cd backend && npx prisma generate
 
 # Clean up workspace metadata files not needed at runtime.
-# pnpm-workspace.yaml and package.json were only needed for install.
-RUN rm -f pnpm-workspace.yaml
+RUN rm -f package-lock.json
 
 # Remove cache directories to reduce image size
-RUN rm -rf /root/.npm /root/.pnpm-store /tmp/*
+RUN rm -rf /root/.npm /root/.npm-cache /tmp/*
 
 # Switch to non-root user
 USER appuser
