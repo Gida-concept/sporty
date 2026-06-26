@@ -1,59 +1,28 @@
-# =============================================================================
-# GameDayWire — Root fly.toml
-# =============================================================================
+# fly.toml app configuration file generated for gamedaywire on 2026-06-26T15:14:05Z
 #
-# This file enables Fly.io GitHub integration to find the backend
-# configuration automatically. Fly.io looks for fly.toml at the project
-# root; without this file, it auto-generates a stock Dockerfile instead
-# of using our custom backend/Dockerfile.
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
-# The build context is the monorepo root (sporty/), which is required
-# for npm workspace resolution. All secrets are set via `fly secrets set`
-# and must remain out of version control.
-#
-# See backend/fly.toml for the authoritative local-deploy configuration
-# and full usage instructions.
-# =============================================================================
 
-# App name — must match backend/fly.toml
-app = "gamedaywire-api"
+app = 'gamedaywire'
+primary_region = 'cdg'
 
 [build]
-  # Dockerfile path, relative to monorepo root (the build context).
-  dockerfile = "backend/Dockerfile"
+  dockerfile = 'backend/Dockerfile'
 
-# =============================================================================
-# HTTP Service Configuration
-# =============================================================================
+[env]
+  NODE_ENV = 'production'
 
 [http_service]
-  # Internal port must match Dockerfile's EXPOSE 8080 and ENV PORT=8080
   internal_port = 8080
-
-  # Redirect HTTP to HTTPS
   force_https = true
 
-  # Fly.io manages machine lifecycle automatically
-
-  # Connection concurrency
   [http_service.concurrency]
-    type = "connections"
+    type = 'connections'
     hard_limit = 50
     soft_limit = 25
 
-  # Health check — polls /api/health every 30s
-  [http_service.healthcheck]
-    path = "/api/health"
-    method = "GET"
-    interval = "30s"
-    timeout = "10s"
-    grace_period = "15s"
-
-# =============================================================================
-# Environment Variables (non-secret only)
-# =============================================================================
-# Secrets (DB_URL, API keys, tokens) must be set with `fly secrets set`.
-# See backend/fly.toml for the full list of required secrets.
-
-[env]
-  NODE_ENV = "production"
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 1024
