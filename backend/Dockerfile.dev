@@ -36,8 +36,12 @@ RUN apk add --no-cache openssl
 WORKDIR /app
 
 # Copy dependency manifests (leveraging Docker layer caching)
+# All workspace package.json files are required so npm can resolve
+# the workspace dependency tree from the workspaces declaration.
 COPY package.json package-lock.json ./
 COPY backend/package.json ./backend/
+COPY frontend/package.json ./frontend/
+COPY cron/package.json ./cron/
 RUN npm install
 
 # Copy Prisma schema and generate client (needed before tsx can run)

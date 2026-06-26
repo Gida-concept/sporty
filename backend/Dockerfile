@@ -35,19 +35,30 @@ WORKDIR /app
 # Install ALL dependencies (including devDependencies) needed for
 # Prisma Client generation and TypeScript compilation.
 #
+# The root package.json declares workspaces: ["frontend", "backend", "cron"].
+# npm ci requires ALL workspace package.json files to be present to resolve
+# the dependency tree. We copy all of them even though only backend is
+# needed for the production image.
+#
 # Layer caching strategy: Because we only copy the lockfile and workspace
 # metadata BEFORE the source code, Docker can cache this layer and only
 # rebuild when dependencies change (not when source changes).
 FROM base AS deps
 COPY package.json package-lock.json ./
 COPY backend/package.json ./backend/
+COPY frontend/package.json ./frontend/
+COPY cron/package.json ./cron/
 RUN npm ci
 
 # ---- Stage 3: Build ----
 # Generate Prisma Client and compile TypeScript.
 # Both steps run inside the build stage so that dev dependencies
 # (typescript, @types/*) are available without polluting the final image.
+#
+# The root package.json is needed here so that `npm run build -w backend`
+# can resolve the workspace name from the workspaces declaration.
 FROM base AS build
+COPY --from=deps /app/package.json ./package.json
 COPY --from=deps /app/node_modules ./node_modules
 COPY backend/ ./backend/
 RUN npm run build -w backend
@@ -69,8 +80,13 @@ RUN addgroup --system --gid 1001 nodejs && \
 # devDependencies, reducing image size and attack surface.
 # prisma CLI is in production dependencies so prisma migrate deploy
 # and prisma generate work at runtime.
+#
+# All workspace package.json files are required so npm ci can resolve
+# the workspace dependency tree from the lockfile.
 COPY package.json package-lock.json ./
 COPY backend/package.json ./backend/
+COPY frontend/package.json ./frontend/
+COPY cron/package.json ./cron/
 RUN npm ci --omit=dev
 
 # Copy compiled TypeScript output from the build stage

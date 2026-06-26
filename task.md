@@ -110,13 +110,38 @@ Created 4 Docker configuration files in `backend/`. Fixed the `backend/Dockerfil
 - 512MB shared CPU VM (cost-effective for blog backend)
 - Instructions for `fly secrets set` for all sensitive env vars
 
+## Post-Completion Fix — 2026-06-26 — Dockerfile npm Workspace Resolution
+
+### Problem
+Fly.io builds were failing because the Dockerfile had bugs in npm workspace resolution:
+
+1. **`deps` stage**: Only `backend/package.json` was copied before `npm ci`. The root `package.json` declares workspaces `["frontend", "backend", "cron"]`. npm ci requires ALL workspace `package.json` files to be present to validate the dependency tree against the lockfile. Without `frontend/package.json` and `cron/package.json`, npm ci would fail.
+
+2. **`build` stage**: Missing the root `package.json` entirely. `npm run build -w backend` needs the root `package.json` to resolve the `-w backend` workspace name. Without it, npm cannot find the backend workspace and fails.
+
+3. **`runner` stage**: Same missing workspace package.json issue as `deps` — `npm ci --omit=dev` would fail without all workspace manifests.
+
+### Fix Applied
+- **`backend/Dockerfile`**: Added `COPY frontend/package.json ./frontend/` and `COPY cron/package.json ./cron/` in both the `deps` and `runner` stages so `npm ci` can resolve the full workspace tree.
+- **`backend/Dockerfile`**: Added `COPY --from=deps /app/package.json ./package.json` in the `build` stage so `npm run build -w backend` can resolve the backend workspace.
+- **`backend/Dockerfile.dev`**: Added `COPY frontend/package.json ./frontend/` and `COPY cron/package.json ./cron/` before `npm install` for the same workspace resolution reason.
+
+### Files Modified
+- `C:\Users\USCHIP\Desktop\sporty\backend\Dockerfile` — Fixed 3 bugs: missing `frontend/package.json` + `cron/package.json` in deps stage, missing root `package.json` in build stage, missing `frontend/package.json` + `cron/package.json` in runner stage
+- `C:\Users\USCHIP\Desktop\sporty\backend\Dockerfile.dev` — Added `frontend/package.json` + `cron/package.json` COPY before `npm install`
+
+### Files Verified (No Changes Needed)
+- `C:\Users\USCHIP\Desktop\sporty\backend\fly.toml` — Already correct: `dockerfile = "backend/Dockerfile"`, build context from monorepo root via `fly deploy --config backend/fly.toml`
+- `C:\Users\USCHIP\Desktop\sporty\docs\deployment.md` — Section 3.4 describes the 4-stage build at a high level; still accurate after internal fixes
+- `C:\Users\USCHIP\Desktop\sporty\package.json` — Root build script `npm run build -w backend && npm run build -w frontend` is for local dev only; Dockerfile uses `npm run build -w backend` directly
+
 ### Verification
 - [x] Root `Dockerfile` deleted
 - [x] Root `.dockerignore` deleted
-- [x] `backend/Dockerfile` — `COPY backend/ ./backend/` fixed, 4-stage build still intact
+- [x] `backend/Dockerfile` — Workspace package.json files copied in all stages, root package.json present in build stage, 4-stage build intact
 - [x] `backend/.dockerignore` — Header updated, no root-copy instructions
 - [x] `backend/fly.toml` — Correct Fly.io config with health checks, scaling, build settings
-- [x] `backend/Dockerfile.dev` — Dev mode with tsx watch, hot-reload capable
+- [x] `backend/Dockerfile.dev` — Workspace package.json files copied before npm install
 - [x] `docs/deployment.md` — Updated dockerignore reference, no root Dockerfile references
 - [x] No remaining apply.build references in the codebase
 - [x] No dangling imports or broken references
