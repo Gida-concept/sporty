@@ -33,11 +33,7 @@ app = "gamedaywire-api"
   # Redirect HTTP to HTTPS
   force_https = true
 
-  # Keep at least one machine running in production
-  auto_stop_machines = false
-  auto_start_machines = true
-  min_machines_running = 1
-  max_machines_running = 2
+  # Fly.io manages machine lifecycle automatically
 
   # Connection concurrency
   [http_service.concurrency]
@@ -61,12 +57,3 @@ app = "gamedaywire-api"
 
 [env]
   NODE_ENV = "production"
-
-# =============================================================================
-# VM Configuration
-# =============================================================================
-
-[[vm]]
-  memory = "512mb"
-  cpu_kind = "shared"
-  cpus = 1

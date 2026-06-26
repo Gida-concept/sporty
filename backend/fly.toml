@@ -64,17 +64,7 @@ app = "gamedaywire-api"
   # Automatically redirect HTTP to HTTPS
   force_https = true
 
-  # Allow machine to stop when idle (false keeps at least one running)
-  auto_stop_machines = false
-
-  # Auto-start machines on incoming traffic
-  auto_start_machines = true
-
-  # Minimum machines to keep running (1 for production, 0 for dev)
-  min_machines_running = 1
-
-  # Maximum machines to scale to under load
-  max_machines_running = 2
+  # Fly.io manages machine lifecycle automatically
 
   # Connection concurrency settings
   [http_service.concurrency]
@@ -113,14 +103,3 @@ app = "gamedaywire-api"
   # If you change Dockerfile's PORT, change it here too, or
   # uncomment the line below:
   # PORT = "8080"
-
-# =============================================================================
-# VM Configuration
-# =============================================================================
-# Fly.io shared CPU machines are cost-effective for a blog backend.
-# Upgrade to dedicated CPUs if the app needs consistent performance.
-
-[[vm]]
-  memory = "512mb"
-  cpu_kind = "shared"
-  cpus = 1

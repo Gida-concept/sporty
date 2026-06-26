@@ -244,3 +244,45 @@ Before the GitHub Actions workflow will work:
 - [x] No dangling imports or broken references in any modified file
 - [x] All new files follow project conventions and documentation standards
 
+---
+
+## Phase 16.7: Fix fly.toml and npm ci "Invalid Version:" Error
+
+### Issues Fixed
+
+**Issue 1: fly.toml had unwanted scaling/resource config**
+Both `backend/fly.toml` and root `fly.toml` contained `auto_stop_machines`, `auto_start_machines`, `min_machines_running`, `max_machines_running`, and `[[vm]]` (shared-cpu-512mb) configs that were set from the Fly.io web UI. These are not needed for Dockerfile-based builds.
+
+**Issue 2: npm ci failed with "Invalid Version: "**
+The `package-lock.json` had 5 stale `cron/node_modules/*` entries with empty/missing version fields. These were left over from when npm installed cron workspace dependencies before realizing they could be hoisted to root `node_modules`. The root `node_modules` already had full version data for all these packages, making the `cron/node_modules/*` entries orphaned and broken.
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `backend/fly.toml` | Removed `auto_stop_machines`, `auto_start_machines`, `min_machines_running`, `max_machines_running`, and entire `[[vm]]` section |
+| `fly.toml` (root) | Same removals as above |
+| `package-lock.json` | Removed 5 stale `cron/node_modules/*` entries with empty versions |
+
+### Details
+
+**fly.toml changes:**
+- Removed: `auto_stop_machines = false`, `auto_start_machines = true`, `min_machines_running = 1`, `max_machines_running = 2` -- these are runtime scaling controls, not required for build/deploy.
+- Removed: `[[vm]]` block (memory, cpu_kind, cpus) -- resource sizing is set via Fly.io dashboard, not needed in config.
+- Preserved: `app`, `[build] dockerfile`, `[http_service] internal_port`/`force_https`/`concurrency`/`healthcheck`, `[env]` -- all needed for the service to function.
+
+**package-lock.json changes:**
+- Removed 5 stale entries where packages were duplicated under `cron/node_modules/*` with empty/missing version fields:
+  - `cron/node_modules/@prisma/client`
+  - `cron/node_modules/@types/node`
+  - `cron/node_modules/@types/node-cron`
+  - `cron/node_modules/node-cron`
+  - `cron/node_modules/typescript`
+- All 5 packages already exist at root `node_modules/` with full version, resolved URL, and integrity data.
+- Lockfile remains valid JSON with lockfileVersion 3, packages reduced from 701 to 696, zero empty-version entries remaining.
+
+### Verification
+- [x] `backend/fly.toml` -- scaling/resource config removed, build/service config preserved
+- [x] `fly.toml` (root) -- same fixes applied
+- [x] `package-lock.json` -- valid JSON, zero `cron/node_modules/*` entries, zero empty-version entries
+
