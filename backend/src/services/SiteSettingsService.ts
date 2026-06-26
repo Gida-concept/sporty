@@ -34,11 +34,24 @@ class SiteSettingsService {
 
   private async ensureCacheLoaded(): Promise<void> {
     if (this.isCacheValid()) return;
-    const settings = await prisma.siteSetting.findMany();
-    this.cache.clear();
-    for (const s of settings) {
-      if (s.key) {
-        this.cache.set(s.key, s.value ?? '');
+    try {
+      const settings = await prisma.siteSetting.findMany();
+      this.cache.clear();
+      for (const s of settings) {
+        if (s.key) {
+          this.cache.set(s.key, s.value ?? '');
+        }
+      }
+    } catch (err: unknown) {
+      // Gracefully handle the case where the SiteSetting table doesn't exist yet
+      // (e.g. before prisma migrate deploy has run on first deploy).
+      // Prisma error code P2021 = "The table does not exist in the current database."
+      const prismaErr = err as { code?: string };
+      if (prismaErr.code === 'P2021') {
+        console.warn('[SiteSettings] SiteSetting table not found, using defaults until migrations are applied.');
+        this.cache.clear();
+      } else {
+        throw err;
       }
     }
     this.cacheTimestamp = Date.now();

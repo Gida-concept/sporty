@@ -21,6 +21,7 @@
 | **14 ✅** | Cron jobs (9 scheduled tasks)                                                | 9 files    | 1-2        |
 | **15 ⬜** | Tests — backend unit + integration, frontend, e2e                            | 20+ files  | 2-3        |
 | **16 ✅** | Docker + deployment — Backend Docker image for Fly.io                        | 4 files    | 1          |
+| **16.8 ✅** | Docker fix — Prisma migrations missing, SiteSetting crash                     | 5 files    | 1          |
 
 ---
 
@@ -285,4 +286,57 @@ The `package-lock.json` had 5 stale `cron/node_modules/*` entries with empty/mis
 - [x] `backend/fly.toml` -- scaling/resource config removed, build/service config preserved
 - [x] `fly.toml` (root) -- same fixes applied
 - [x] `package-lock.json` -- valid JSON, zero `cron/node_modules/*` entries, zero empty-version entries
+
+---
+
+## Phase 16.8: Fix Docker Deployment — Prisma Migration and SiteSetting Table Issues ✅
+
+**Goal:** Fix two Docker deployment issues on Fly.io: missing Prisma migration files in the Docker image, and SiteSetting startup crash.
+
+### Issues Fixed
+
+**Issue 1: No migration files existed.**
+The `backend/prisma/migrations/` directory was entirely absent from the repository. The Dockerfile's CMD runs `npx prisma migrate deploy --schema=backend/prisma/schema.prisma`, which reads migration SQL files from `prisma/migrations/`. Without migration files, the command reported "No migration found" and skipped database schema creation. All 10 tables (including `SiteSetting`) were never created.
+
+**Root cause:** The project was greenfield — the documentation specified 10 Prisma models in `schema.prisma`, but the initial migration was never generated and committed. The `.env` file contained a Supabase DATABASE_URL, but no `prisma migrate dev` or `prisma migrate diff` had been run to produce migration artifacts.
+
+**Fix:** Generated the initial migration using `prisma migrate diff --from-empty --to-schema-datamodel` and created:
+- `backend/prisma/migrations/migration_lock.toml` with `provider = "postgresql"`
+- `backend/prisma/migrations/20260626000001_init/migration.sql` containing all 10 CREATE TABLE statements, indexes, and foreign key constraints
+
+**Issue 2: SiteSettingsService crashed on startup when the table didn't exist.**
+The `ensureCacheLoaded()` method in `SiteSettingsService.ts` calls `prisma.siteSetting.findMany()` without error handling. On the first deploy before migrations run, the `SiteSetting` table doesn't exist, causing an unhandled `P2021` Prisma error and crashing the server.
+
+**Root cause:** No try/catch around the database call. The `backend/src/index.ts` already had a try/catch for the CORS origin loading path (line 107-111), but the underlying `ensureCacheLoaded()` method did not handle missing tables.
+
+**Fix:** Added try/catch around `prisma.siteSetting.findMany()` in `ensureCacheLoaded()` that catches Prisma `P2021` (table does not exist) gracefully. When the table is missing, it logs a warning and returns an empty cache, allowing defaults to be used until migrations are applied. Non-P2021 errors are still re-thrown.
+
+**Issue 3: backend/.dockerignore had migration_lock.toml exclusion.**
+The reference copy of `.dockerignore` at `backend/.dockerignore` excluded `prisma/migrations/**/migration_lock.toml`. If this reference copy were ever copied to the root `.dockerignore` (as its header instructs), the `migration_lock.toml` would be excluded from the Docker build context, breaking `prisma migrate deploy`.
+
+**Fix:** Removed the `prisma/migrations/**/migration_lock.toml` exclusion line from `backend/.dockerignore`.
+
+### Files Created
+
+| File | Description |
+|------|-------------|
+| `backend/prisma/migrations/migration_lock.toml` | Prisma migration lock file (`provider = "postgresql"`) |
+| `backend/prisma/migrations/20260626000001_init/migration.sql` | Initial migration with all 10 models, indexes, and foreign keys |
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `backend/src/services/SiteSettingsService.ts` | Added P2021 error handling in `ensureCacheLoaded()` — treats missing SiteSetting table as empty cache instead of crashing |
+| `backend/.dockerignore` | Removed `prisma/migrations/**/migration_lock.toml` exclusion that would break migration deployment |
+
+### Verification
+
+- [x] Migration files created at `backend/prisma/migrations/` with correct Prisma directory structure
+- [x] `migration.sql` contains all 10 models (Category, Trend, Keyword, Article, ArticleCategory, PageView, SeoMetric, LinkGraph, ContentGuide, SystemLog, SiteSetting) with proper indexes and foreign keys
+- [x] `migration_lock.toml` declares `provider = "postgresql"` matching `schema.prisma`
+- [x] `SiteSettingsService.ensureCacheLoaded()` catches P2021 and returns gracefully — other errors still propagate
+- [x] `backend/.dockerignore` no longer excludes migration lock file
+- [x] Dockerfile `COPY --from=build /app/backend/prisma/ ./backend/prisma/` will now copy the `migrations/` directory to the runtime image
+- [x] No dangling imports or broken references
 

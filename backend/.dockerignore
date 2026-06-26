@@ -77,7 +77,6 @@ cache/
 # Database files (local development only)
 *.db
 *.db-journal
-prisma/migrations/**/migration_lock.toml
 
 # Docker files (don't nest Docker contexts)
 docker-compose*.yml
