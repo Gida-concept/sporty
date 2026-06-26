@@ -3,7 +3,10 @@ import { createRateLimiter } from '../middleware/rateLimiter.js';
 import prisma from '../lib/prisma.js';
 
 const router: Router = Router();
-const healthLimiter = createRateLimiter({ windowMs: 3600000, max: 50 });
+// Fly.io health checks poll every 30s = 120 requests/hour minimum.
+// Set limit to 500/hour to comfortably cover Fly.io health checks
+// plus incidental client traffic, without opening a DOS vector.
+const healthLimiter = createRateLimiter({ windowMs: 3600000, max: 500 });
 
 router.get('/', healthLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {

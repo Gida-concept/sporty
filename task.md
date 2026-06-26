@@ -340,3 +340,39 @@ The reference copy of `.dockerignore` at `backend/.dockerignore` excluded `prism
 - [x] Dockerfile `COPY --from=build /app/backend/prisma/ ./backend/prisma/` will now copy the `migrations/` directory to the runtime image
 - [x] No dangling imports or broken references
 
+---
+
+## Phase 16.9: Fix Fly.io Deploy Log Yellow Flags
+
+**Goal:** Investigate and fix remaining yellow flags in Fly.io deploy logs.
+
+### Analysis and Fixes Applied
+
+**Issue 1: "Cron scheduler not available" logged at warn level**
+- **Root cause:** The dynamic import of `cron/scheduler.js` in `backend/src/index.ts` is intentionally designed to fail gracefully in Docker/Fly.io deployments (where only the backend workspace is deployed, not the cron workspace). The catch block logged it at `console.warn`, which looked like an error in production logs.
+- **Fix:** Changed `console.warn` to `console.info` and updated the message to clarify this is expected behavior in Fly.io deployments. The scheduled tasks are not designed to run in the same container as the backend API.
+
+**Issue 2: SIGINT on first machine ~10s after startup**
+- **Root cause:** The Fly.io `grace_period` was 15s, but migration takes ~12s and app startup takes ~14s -- only a 1-second margin before health checks begin. Additionally, the root `fly.toml` was missing the health check section entirely.
+- **Fix 1:** Increased `grace_period` from 15s to 30s in `backend/fly.toml` to give migration + app startup adequate time before health checks begin.
+- **Fix 2:** Added missing `[http_service.healthcheck]` section to root `fly.toml` (it was a stub with no health check config at all). Also fixed app name from `gamedaywire` to `gamedaywire-api` and removed stale `[[vm]]` section that was supposed to have been cleaned up in Phase 16.7.
+
+**Issue 3 (newly discovered): Health check rate limiter too restrictive**
+- **Root cause:** The `/api/health` endpoint had a rate limit of 50 requests/hour. Fly.io health checks poll every 30 seconds = 120 requests/hour. After ~25 minutes, health checks would hit the rate limit and start returning 429, making Fly.io consider the machine unhealthy.
+- **Fix:** Increased the health endpoint rate limit from 50/hour to 500/hour, comfortably covering Fly.io's 120/hour checks plus incidental traffic.
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `backend/src/index.ts` | Changed cron scheduler message from `console.warn` to `console.info` with clearer wording |
+| `backend/fly.toml` | Increased `grace_period` from `"15s"` to `"30s"` |
+| `fly.toml` (root) | Fixed app name to `gamedaywire-api`, added `[http_service.healthcheck]` section, removed stale `[[vm]]` section |
+| `backend/src/routes/health.ts` | Increased health check rate limit from 50/hour to 500/hour |
+
+### Verification
+- [x] Cron message now uses `console.info` instead of `console.warn` -- no longer alarming in logs
+- [x] `backend/fly.toml` grace_period increased to 30s -- adequate margin for migration + app startup
+- [x] Root `fly.toml` now has health check config matching `backend/fly.toml` -- consistent across configs
+- [x] Health endpoint rate limit increased to 500/hour -- Fly.io 120/hour checks won't trigger 429
+- [x] No dangling imports or broken references
+

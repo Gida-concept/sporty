@@ -119,7 +119,7 @@ if (isDirectRun) {
       const { start: startCron } = await import(cronPath);
       startCron();
     } catch (err) {
-      console.warn('[Startup] Cron scheduler not available. Scheduled tasks will not run in this deployment.');
+      console.info('[Startup] Cron scheduler not available (expected in Docker/Fly.io deployments). Scheduled tasks will not run in this deployment.');
     }
 
     app.listen(config.port, () => {

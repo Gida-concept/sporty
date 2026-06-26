@@ -3,7 +3,7 @@
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'gamedaywire'
+app = 'gamedaywire-api'
 primary_region = 'cdg'
 
 [build]
@@ -21,8 +21,9 @@ primary_region = 'cdg'
     hard_limit = 50
     soft_limit = 25
 
-[[vm]]
-  memory = '1gb'
-  cpu_kind = 'shared'
-  cpus = 1
-  memory_mb = 1024
+  [http_service.healthcheck]
+    path = "/api/health"
+    method = "GET"
+    interval = "30s"
+    timeout = "10s"
+    grace_period = "30s"
