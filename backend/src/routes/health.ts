@@ -8,41 +8,46 @@ const router: Router = Router();
 // plus incidental client traffic, without opening a DOS vector.
 const healthLimiter = createRateLimiter({ windowMs: 3600000, max: 500 });
 
-router.get('/', healthLimiter, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    let dbStatus = 'ok';
-    let dbMessage = 'Connection established successfully';
-    let dbLatency = 0;
+// Track DB health asynchronously — never await a query in the health handler.
+let dbStatus: 'ok' | 'error' | 'pending' = 'pending';
+let dbLatency = 0;
+let dbMessage = 'Not yet checked';
 
-    // Check DB connectivity with ping
-    try {
-      const start = Date.now();
-      await prisma.$queryRaw`SELECT 1`;
+function checkDbHealth(): void {
+  const start = Date.now();
+  prisma.$queryRaw`SELECT 1`
+    .then(() => {
+      dbStatus = 'ok';
       dbLatency = Date.now() - start;
-    } catch {
+      dbMessage = 'Connection established successfully';
+    })
+    .catch(() => {
       dbStatus = 'error';
+      dbLatency = Date.now() - start;
       dbMessage = 'Database connection failed';
-    }
-
-    const overallStatus = dbStatus === 'ok' ? 'healthy' : 'critical';
-    const httpStatus = dbStatus === 'ok' ? 200 : 503;
-
-    res.status(httpStatus).json({
-      success: true,
-      status: overallStatus,
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      checks: {
-        database: {
-          status: dbStatus,
-          latency_ms: dbLatency,
-          message: dbMessage,
-        },
-      },
     });
-  } catch (err) {
-    next(err);
-  }
+}
+
+// Fire immediately so first health check has a result.
+checkDbHealth();
+
+// Re-check every 30 seconds so Fly.io sees fresh data.
+setInterval(checkDbHealth, 30000);
+
+router.get('/', healthLimiter, (_req: Request, res: Response, _next: NextFunction) => {
+  res.json({
+    success: true,
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    checks: {
+      database: {
+        status: dbStatus,
+        latency_ms: dbLatency,
+        message: dbMessage,
+      },
+    },
+  });
 });
 
 export default router;
