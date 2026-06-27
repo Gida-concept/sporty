@@ -105,7 +105,10 @@ class SiteSettingsService {
   // ---------------------------------------------------------------------------
 
   async getSiteUrl(): Promise<string> {
-    return (await this.getSetting('site_url')) || 'http://localhost:3000';
+    // Priority: 1) DB site_setting, 2) SITE_URL env var, 3) localhost fallback
+    const dbUrl = await this.getSetting('site_url');
+    if (dbUrl) return dbUrl;
+    return process.env.SITE_URL || 'http://localhost:3000';
   }
 
   async getCorsOrigin(): Promise<string> {

@@ -42,6 +42,9 @@ export interface AppConfig {
 
   // Session configuration
   adminSessionTtlMs: number;
+
+  // Site URL (frontend URL, used for sitemaps and search engine pings)
+  siteUrl: string;
 }
 
 function envString(key: string, defaultValue?: string): string {
@@ -74,6 +77,8 @@ export const config: AppConfig = {
   webhookSecret: envString('WEBHOOK_SECRET', 'dev-webhook-secret'),
 
   adminSessionTtlMs: envInt('ADMIN_SESSION_TTL', 86400000),
+
+  siteUrl: envString('SITE_URL', 'http://localhost:3000'),
 };
 
 export function validateConfig(): void {
