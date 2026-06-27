@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 GameDayWire is a **programmatic SEO blog engine** that autonomously generates sports and entertainment articles. It discovers trending topics, validates them via SerpAPI, generates AI-written content through a structured Content Guide Engine, optimizes it for SEO, and publishes to a Next.js frontend — all without human intervention.
 
-**This is a greenfield project.** The full architecture is specified in `docs/` but no source code has been written yet. The documentation is the source of truth for all design decisions.
+**This project is fully built and deployed.** The backend (22 services, 19 routes), frontend (70+ files), Docker configuration, GitHub Actions CI/CD, and all documentation are complete. The `docs/` directory remains the authoritative source for all architecture and design decisions.
 
 **Stack:** Next.js 15 (App Router) + Tailwind CSS → Express.js + Prisma ORM + PostgreSQL (Supabase) → SerpAPI + Groq API
 
@@ -167,7 +167,7 @@ The `docs/` directory is the authoritative source for all architecture and desig
 
 ## Implementation Order (from docs)
 
-The project is greenfield. Build in this order:
+The project was built in this order (historical reference):
 
 1. **Backend foundation** — Express app bootstrap, config loader, middleware stack (auth, rate limiting, error handler, cache)
 2. **Database** — Prisma schema, migrations, seed script

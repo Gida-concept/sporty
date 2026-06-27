@@ -79,15 +79,18 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 Visitor → /admin/login (enter password)
               ↓
-         POST /api/admin/auth/login { password }
+         POST /api/admin/auth/login { token: "password" }
               ↓
          Backend compares password === process.env.ADMIN_TOKEN
               ↓
-   Match?  →  { token: ADMIN_TOKEN }  (stored in localStorage)
+   Match?  →  Creates DB-backed session (random token, 24h TTL)
+              Returns { session_token: "64-char-hex" }
    No match?  →  401 Unauthorized
               ↓
+         Frontend stores session_token in localStorage
+              ↓
          All admin API calls include:
-           Authorization: Bearer <token>
+           Authorization: Bearer <session_token>
               ↓
          Admin layout checks auth context:
            No token → redirect to /admin/login
@@ -99,8 +102,13 @@ Visitor → /admin/login (enter password)
 - The `ADMIN_TOKEN` is the sole authentication credential — treat it like a password
 - Store it in `.env` (never committed to git)
 - `Authorization` headers are encrypted over HTTPS
-- No user model, no sessions, no JWT — appropriate for single-operator use
+- No user model, no roles (beyond the shared admin role) — appropriate for single-operator use
 - If the token is compromised, regenerate it in `.env` and restart the backend
+- **Admin sessions are stored in PostgreSQL** via the `admin_sessions` table, not in memory. This means:
+  - Sessions persist across server restarts and deploys (no more forced re-login on Fly.io deploys)
+  - Each session has a 24-hour TTL (configurable via `ADMIN_SESSION_TTL` environment variable, in milliseconds)
+  - Expired sessions are cleaned up automatically when a token is validated, and can also be bulk-cleaned via periodic maintenance
+  - A database query is performed on every admin request to validate the session token — the `admin_sessions` table is indexed on `token` for fast lookups
 
 ---
 
@@ -615,20 +623,30 @@ All admin endpoints are prefixed with `/api/admin/` and require `Authorization: 
 | Method   | Path                                    | Rate Limit | Purpose                                      |
 | -------- | --------------------------------------- | ---------- | -------------------------------------------- |
 | `POST`   | `/api/admin/auth/login`                 | 10/hour    | Authenticate and receive token               |
-| `GET`    | `/api/admin/stats`                      | 30/hour    | Dashboard aggregate statistics               |
-| `GET`    | `/api/admin/articles`                   | 60/hour    | Paginated article list with filters          |
-| `GET`    | `/api/admin/articles/:id`               | 60/hour    | Single article detail + analytics            |
-| `PATCH`  | `/api/admin/articles/:id`               | 30/hour    | Update article metadata                      |
-| `DELETE` | `/api/admin/articles/:id`               | 10/hour    | Soft-delete (or hard-delete with ?hard=true) |
-| `POST`   | `/api/admin/articles/:id/links`         | 30/hour    | Add a link to an article                     |
-| `DELETE` | `/api/admin/articles/:id/links/:linkId` | 30/hour    | Remove a link from an article                |
-| `GET`    | `/api/admin/categories`                 | 30/hour    | List all categories                          |
-| `POST`   | `/api/admin/categories`                 | 10/hour    | Create a new category                        |
-| `PUT`    | `/api/admin/categories/:id`             | 10/hour    | Update a category                            |
-| `DELETE` | `/api/admin/categories/:id`             | 10/hour    | Delete a category (with reassignment)        |
-| `GET`    | `/api/admin/analytics`                  | 30/hour    | Time-series pageview data                    |
-| `GET`    | `/api/admin/settings`                   | 100/hour   | Get site settings (ad codes, header/body HTML) |
-| `PUT`    | `/api/admin/settings`                   | 100/hour   | Update site settings                         |
+| `GET`    | `/api/admin/stats`                              | 30/hour    | Dashboard aggregate statistics                       |
+| `GET`    | `/api/admin/articles`                           | 60/hour    | Paginated article list with filters                  |
+| `GET`    | `/api/admin/articles/:id`                       | 60/hour    | Single article detail + analytics                    |
+| `PATCH`  | `/api/admin/articles/:id`                       | 30/hour    | Update article metadata                              |
+| `DELETE` | `/api/admin/articles/:id`                       | 10/hour    | Soft-delete (or hard-delete with ?hard=true)         |
+| `POST`   | `/api/admin/articles/:id/links`                 | 30/hour    | Add a link to an article                             |
+| `DELETE` | `/api/admin/articles/:id/links/:linkId`         | 30/hour    | Remove a link from an article                        |
+| `GET`    | `/api/admin/categories`                         | 30/hour    | List all categories                                  |
+| `POST`   | `/api/admin/categories`                         | 10/hour    | Create a new category                                |
+| `PUT`    | `/api/admin/categories/:id`                     | 10/hour    | Update a category                                    |
+| `DELETE` | `/api/admin/categories/:id`                     | 10/hour    | Delete a category (with reassignment)                |
+| `GET`    | `/api/admin/analytics`                          | 30/hour    | Time-series pageview data                            |
+| `GET`    | `/api/admin/settings`                           | 100/hour   | Get site settings (ad codes, header/body HTML)       |
+| `PUT`    | `/api/admin/settings`                           | 100/hour   | Update site settings                                 |
+| `POST`   | `/api/admin/cron/morning-article`               | 20/hour    | Trigger morning article generation (08:00 UTC)       |
+| `POST`   | `/api/admin/cron/evening-article`               | 20/hour    | Trigger evening article generation (19:00 UTC)       |
+| `POST`   | `/api/admin/cron/trend-monitor`                 | 20/hour    | Trigger trend discovery (every 3 hours)              |
+| `POST`   | `/api/admin/cron/keyword-refresh`               | 20/hour    | Trigger keyword matrix regeneration (02:00 UTC)      |
+| `POST`   | `/api/admin/cron/content-refresh`               | 20/hour    | Trigger stale article refresh (03:00 UTC)            |
+| `POST`   | `/api/admin/cron/sitemap-generator`             | 20/hour    | Trigger sitemap rebuild (01:00 UTC)                  |
+| `POST`   | `/api/admin/cron/link-update`                   | 20/hour    | Trigger link graph rebuild (Sunday 04:00 UTC)        |
+| `POST`   | `/api/admin/cron/seo-audit`                     | 20/hour    | Trigger SEO audit (Sunday 05:00 UTC)                 |
+| `POST`   | `/api/admin/cron/backup`                        | 20/hour    | Trigger database backup (Sunday 06:00 UTC)           |
+| `POST`   | `/api/admin/cron/run-all`                       | 20/hour    | Execute all cron jobs sequentially (manual testing)  |
 
 ### 8.2 Tracking Endpoint
 
@@ -753,8 +771,9 @@ On 401 responses, `admin-api.ts` automatically clears the auth context and redir
 | Factor         | Decision                                                                              |
 | -------------- | ------------------------------------------------------------------------------------- |
 | **User count** | Single operator — no need for user registration or roles                              |
-| **Complexity** | No sessions, no JWT, no database queries on each request                              |
+| **Complexity** | No JWT, no user model — sessions are simple DB rows with a bearer token               |
 | **Security**   | Token lives in `.env` (file system), not database — database breach doesn't leak auth |
+| **Persistence**| Sessions stored in PostgreSQL — survive server restarts and Fly.io deploys           |
 | **Denial**     | Compromised token = regenerate in `.env` and restart. No user management needed       |
 
 ### 10.2 Why Daily-Aggregated PageView?
@@ -891,6 +910,103 @@ Settings values are fetched by the public `GET /api/settings` endpoint and passe
 
 ---
 
+## 12. Cron Job Triggers
+
+The admin API includes 10 endpoint triggers (9 individual jobs + 1 run-all) for executing cron jobs on-demand. These endpoints are called by GitHub Actions scheduled workflows and can also be triggered manually via `workflow_dispatch` in the Actions tab.
+
+### 12.1 Endpoint Overview
+
+All cron trigger endpoints:
+- Use `POST` method
+- Require `Authorization: Bearer <admin_token>` header
+- Rate limited to 20 requests per hour
+- Accept optional `?dry_run=true` query parameter for testing
+
+| Endpoint                           | Schedule                    | Purpose                                  |
+| ---------------------------------- | --------------------------- | ---------------------------------------- |
+| `/api/admin/cron/morning-article`  | Daily 08:00 UTC             | Full article generation pipeline (sports) |
+| `/api/admin/cron/evening-article`  | Daily 19:00 UTC             | Full article generation pipeline (entertainment) |
+| `/api/admin/cron/trend-monitor`    | Every 3 hours               | Discover and score trending topics       |
+| `/api/admin/cron/keyword-refresh`  | Daily 02:00 UTC             | Regenerate keyword matrix                |
+| `/api/admin/cron/content-refresh`  | Daily 03:00 UTC             | Identify stale articles for refresh      |
+| `/api/admin/cron/sitemap-generator`| Daily 01:00 UTC             | Rebuild XML sitemap                      |
+| `/api/admin/cron/link-update`      | Sunday 04:00 UTC            | Rebuild internal link graph              |
+| `/api/admin/cron/seo-audit`        | Sunday 05:00 UTC            | Technical SEO health check               |
+| `/api/admin/cron/backup`           | Sunday 06:00 UTC            | Database dump and file backup            |
+| `/api/admin/cron/run-all`          | Manual only                 | Execute all 9 jobs sequentially          |
+
+### 12.2 Example Request
+
+```bash
+# Trigger morning article generation
+curl -X POST "https://gamedaywire.fly.dev/api/admin/cron/morning-article" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Content-Type: application/json"
+
+# Dry run (no side effects)
+curl -X POST "https://gamedaywire.fly.dev/api/admin/cron/morning-article?dry_run=true" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Content-Type: application/json"
+
+# Run all jobs sequentially
+curl -X POST "https://gamedaywire.fly.dev/api/admin/cron/run-all" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Content-Type: application/json"
+```
+
+### 12.3 Example Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "success": true,
+    "exitCode": 0,
+    "message": "Published article: lebron-james-stats-2026-season (sports)",
+    "details": {
+      "slug": "lebron-james-stats-2026-season",
+      "category": "sports",
+      "title": "LeBron James Stats 2026 Season: Historic Campaign"
+    }
+  },
+  "timestamp": "2026-06-26T08:00:00Z"
+}
+```
+
+### 12.4 Error Response
+
+```json
+{
+  "success": false,
+  "data": {
+    "success": false,
+    "exitCode": 1,
+    "message": "Trend monitor failed: SerpAPI quota exceeded",
+    "details": {
+      "error": "SerpAPI quota exceeded"
+    }
+  },
+  "timestamp": "2026-06-26T08:00:00Z"
+}
+```
+
+The `run-all` endpoint returns an array of results instead of a single result:
+
+```json
+{
+  "success": true,
+  "data": {
+    "results": [
+      { "success": true, "exitCode": 0, "message": "...", "details": { "jobName": "sitemap_generator" } },
+      { "success": true, "exitCode": 0, "message": "...", "details": { "jobName": "keyword_refresh" } }
+    ]
+  },
+  "timestamp": "2026-06-26T08:00:00Z"
+}
+```
+
+---
+
 ## See Also
 
 - [API Reference](./api-reference.md) — All API endpoints including admin auth and rate limits
@@ -898,3 +1014,4 @@ Settings values are fetched by the public `GET /api/settings` endpoint and passe
 - [Project Structure](./project-structure.md) — Admin routes, components, and services in the file tree
 - [Deployment](./deployment.md) — `ADMIN_TOKEN` environment variable configuration
 - [Architecture](./guides/architecture.md) — Admin system design principles
+- [Cron Jobs](./cron-jobs.md) — Detailed cron job documentation and dry-run testing

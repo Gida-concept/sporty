@@ -22,6 +22,11 @@
 | **15 ⬜** | Tests — backend unit + integration, frontend, e2e                            | 20+ files  | 2-3        |
 | **16 ✅** | Docker + deployment — Backend Docker image for Fly.io                        | 4 files    | 1          |
 | **16.8 ✅** | Docker fix — Prisma migrations missing, SiteSetting crash                     | 5 files    | 1          |
+| **16.9 ✅** | Fix Fly.io deploy log yellow flags                                            | 4 files    | 1          |
+| **16.10 ✅** | GitHub Actions cron workflows + admin trigger endpoints                       | 10 files   | 1          |
+| **16.11 ✅** | Cron duplication refactor — thin wrappers delegate to CronService            | 10 files   | 1          |
+| **17 ✅**    | SerpAPI quotas moved to PostgreSQL for persistence across Fly.io deploys     | 5 files    | 1          |
+| **17.1 ✅**  | Admin sessions in PostgreSQL (Already Implemented)                           | —          | —          |
 
 ---
 
@@ -375,4 +380,210 @@ The reference copy of `.dockerignore` at `backend/.dockerignore` excluded `prism
 - [x] Root `fly.toml` now has health check config matching `backend/fly.toml` -- consistent across configs
 - [x] Health endpoint rate limit increased to 500/hour -- Fly.io 120/hour checks won't trigger 429
 - [x] No dangling imports or broken references
+
+---
+
+## Phase 16.10: GitHub Actions Cron Workflows + Admin Trigger Endpoints ✅
+
+**Goal:** Replace the in-container node-cron scheduler (which cannot run in Fly.io Docker deployments where only the backend workspace is shipped) with GitHub Actions scheduled workflows that trigger cron jobs via admin API endpoints.
+
+### Problem
+
+The Docker image only ships the `backend/` workspace. The `cron/` TypeScript files are not compiled in the Docker build. The dynamic import of `cron/scheduler.js` in `backend/src/index.ts` correctly catches this at startup and logs "Cron scheduler not available (expected in Docker/Fly.io deployments)." This means all 9 scheduled tasks (morning_article, evening_article, trend_monitor, keyword_refresh, content_refresh, sitemap_generator, link_update, seo_audit, backup) never run in production.
+
+### Solution Architecture
+
+**Two-part implementation:**
+
+1. **Backend: CronService + Admin Trigger Routes** -- A new `CronService` in `backend/src/services/` contains the orchestration logic for all 9 cron jobs, importing backend services directly (no cross-package relative paths). Admin trigger endpoints at `/api/admin/cron/*` execute these synchronously, protected by `adminAuth` middleware.
+
+2. **GitHub Actions: Scheduled Workflows** -- 4 workflow files call the trigger endpoints via `curl` with `Authorization: Bearer <ADMIN_TOKEN>`. Each workflow is grouped by schedule frequency and supports `workflow_dispatch` for manual runs.
+
+### Design Decisions
+
+**Why CronService instead of importing cron/ files:**
+- The Docker build only compiles `backend/` (`npm run build -w backend`), not `cron/`.
+- The cron job files use relative paths like `../backend/src/lib/prisma.js` that would break when dynamically imported from a compiled backend at `backend/dist/`.
+- A dedicated `CronService.ts` inside `backend/src/services/` uses standard backend imports and is compiled as part of the backend build.
+
+**What CronService does not replace:**
+- The `cron/` directory files remain as-is for local development and `npm run cron:dry-run` usage.
+- The `backend/src/index.ts` dynamic import of `cron/scheduler.js` remains for local dev.
+- The `CronService` is production-only, activated when triggered via API.
+
+**Why 4 separate workflow files instead of 1:**
+- GitHub Actions runs ALL jobs in a workflow on EVERY schedule trigger. With 9 different schedules, a single workflow would run 9 jobs per trigger.
+- Separate files per schedule group (daily articles, daily maintenance, trend monitor, weekly) minimize unnecessary API calls.
+- Each workflow has its own `workflow_dispatch` for independent manual triggering.
+
+### Files Created
+
+| File | Description |
+|------|-------------|
+| `backend/src/services/CronService.ts` | Orchestration service with static methods for all 9 cron jobs + `runAll()` |
+| `backend/src/routes/admin/cron.ts` | Admin route with 10 POST endpoints (9 individual + 1 run-all) |
+| `.github/workflows/cron-articles.yml` | Scheduled workflow for morning + evening article generation |
+| `.github/workflows/cron-maintenance.yml` | Scheduled workflow for sitemap, keyword, and content refresh |
+| `.github/workflows/cron-trend-monitor.yml` | Scheduled workflow for trend discovery every 3 hours |
+| `.github/workflows/cron-weekly.yml` | Scheduled workflow for link update, SEO audit, and backup |
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `backend/src/index.ts` | Added `adminCronRoutes` import and `app.use('/api/admin/cron', adminCronRoutes)` mount |
+| `docs/admin.md` | Added section 12 (Cron Job Triggers) with endpoint table, example requests/responses |
+| `docs/api-reference.md` | Added `/api/admin/cron/*` to rate limit table |
+| `docs/cron-jobs.md` | Replaced systemd/Docker deployment docs with GitHub Actions + local legacy sections |
+
+### Verification
+
+- [x] `backend/src/services/CronService.ts` -- All 9 methods match cron job orchestration logic; imports use standard backend paths; returns `CronResult` interface
+- [x] `backend/src/routes/admin/cron.ts` -- 10 POST endpoints (9 jobs + 1 run-all), all protected by `adminAuth`, rate limited to 20/hour, supports `?dry_run=true`
+- [x] `backend/src/index.ts` -- Route import and mount added after admin settings route
+- [x] `.github/workflows/cron-articles.yml` -- Schedules at 08:00 and 19:00 UTC daily; triggers morning_article + evening_article
+- [x] `.github/workflows/cron-maintenance.yml` -- Schedules at 01:00, 02:00, 03:00 UTC daily; triggers sitemap, keyword, content
+- [x] `.github/workflows/cron-trend-monitor.yml` -- Schedule every 3 hours; triggers trend_monitor
+- [x] `.github/workflows/cron-weekly.yml` -- Schedules Sunday 04:00, 05:00, 06:00 UTC; triggers link, seo, backup
+- [x] All workflows have `workflow_dispatch` for manual runs, `concurrency` guards, `curl --fail` for error detection
+- [x] No type errors from new files (`tsc --noEmit` passes for CronService and cron route)
+- [x] No dangling imports or broken references in any modified file
+
+---
+
+## Phase 16.11: Refactor Cron Code Duplication -- Cron Files Delegate to CronService
+
+**Goal:** Eliminate duplicated article pipeline logic between `cron/*.ts` files and `CronService` methods by making cron files thin wrappers that delegate to `CronService`.
+
+### Problem
+
+The article pipeline logic existed in two places:
+1. `cron/morningArticle.ts` and `cron/eveningArticle.ts` -- with their own full pipeline implementation
+2. `backend/src/services/CronService.ts` -- with its own `runArticlePipeline()` method
+
+All 9 cron jobs had duplicated orchestration logic. Changes had to be made in two places, leading to inevitable drift.
+
+### Solution
+
+Each of the 9 `cron/*.ts` files is now a **thin wrapper** that:
+- Dynamically imports `CronService` from `../backend/src/services/CronService.js`
+- Delegates to the corresponding `CronService` static method
+- Passes through the `dryRun` parameter
+- Returns the `CronResult`
+- Gracefully handles import failure (returns failed CronResult if CronService cannot be loaded)
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `cron/morningArticle.ts` | Replaced full pipeline with thin wrapper calling `CronService.morningArticle({ dryRun })` |
+| `cron/eveningArticle.ts` | Replaced full pipeline with thin wrapper calling `CronService.eveningArticle({ dryRun })` |
+| `cron/trendMonitor.ts` | Replaced full logic with thin wrapper calling `CronService.trendMonitor({ dryRun })` |
+| `cron/keywordRefresh.ts` | Replaced full logic with thin wrapper calling `CronService.keywordRefresh({ dryRun })` |
+| `cron/contentRefresh.ts` | Replaced full logic with thin wrapper calling `CronService.contentRefresh({ dryRun })` |
+| `cron/sitemapGenerator.ts` | Replaced full logic with thin wrapper calling `CronService.sitemapGenerator({ dryRun })` |
+| `cron/linkUpdate.ts` | Replaced full logic with thin wrapper calling `CronService.linkUpdate({ dryRun })` |
+| `cron/seoAudit.ts` | Replaced full logic with thin wrapper calling `CronService.seoAudit({ dryRun })` |
+| `cron/backup.ts` | Replaced full logic with thin wrapper calling `CronService.backup({ dryRun })` |
+| `backend/src/services/CronService.ts` | Ported SQLite fallback from original `cron/backup.ts` into `CronService.backup()` |
+| `docs/cron-jobs.md` | Updated Overview section to document thin wrapper architecture |
+
+### Files Verified (No Changes Needed)
+
+| File | Reason |
+|------|--------|
+| `cron/scheduler.ts` | Still imports `execute` from each cron file; calls `execute()` with no args (matches `execute(dryRun = false)`) |
+| `cron/types.ts` | `CronResult` still exported and used by wrappers; `CronOptions` preserved for external consumers |
+| `backend/src/routes/admin/cron.ts` | Already imports `CronService` directly; no changes needed |
+| `docs/admin.md` | Already documents CronService-powered API endpoints; accurate |
+| `docs/api-reference.md` | Already references cron endpoints; no changes needed |
+
+### CronService Improvements Applied
+
+- **`backup()`**: Added the SQLite fallback (`prisma/dev.db` copy) that existed in `cron/backup.ts` but was missing from `CronService.backup()`.
+- All other CronService methods already matched or exceeded their cron file counterparts in terms of error handling and edge cases.
+
+### Verification
+
+- [x] All 9 cron files are thin wrappers (12-18 lines each, down from 60-90 lines)
+- [x] All wrappers use dynamic import with try/catch for graceful failure
+- [x] `scheduler.ts` imports unchanged -- calls `execute()` with no args
+- [x] `backend/src/routes/admin/cron.ts` imports unchanged -- uses `CronService` directly
+- [x] `CronService.backup()` now has SQLite fallback matching the original `cron/backup.ts`
+- [x] No stale imports from `../backend/src/` remain in any cron file
+- [x] `docs/cron-jobs.md` updated with architecture note
+- [x] No dangling imports or broken references
+
+---
+
+## Phase 17: Move SerpAPI Quota Tracking from Disk to PostgreSQL ✅
+
+**Goal:** Persist SerpAPI daily/monthly request quota tracking in PostgreSQL so it survives Fly.io deploys and prevents accidental quota overages.
+
+### Problem
+
+The SerpAPI quota tracking lived in `backend/src/lib/cache.ts` (DiskCache class), which wrote to `backend/data/cache.json`. On Fly.io, this file is ephemeral -- every deploy or restart reset the counters to zero, potentially causing the app to exceed SerpAPI's plan limits.
+
+### Solution
+
+Added a `SerpApiQuota` Prisma model (one row per day) with a DB-backed `SerpApiQuotaService` that handles quota checks and incrementing. The DiskCache still handles response caching (TTL-based dedup).
+
+### Files Created
+
+| File | Description |
+|------|-------------|
+| `backend/src/services/SerpApiQuotaService.ts` | DB-backed quota service with `getQuotas()`, `increment()`, `canMakeRequest()` -- all fail open on DB errors |
+| `backend/prisma/migrations/20260627000002_add_serp_api_quotas/migration.sql` | Migration creating `serp_api_quotas` table with unique date constraint |
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `backend/prisma/schema.prisma` | Added `SerpApiQuota` model with `id`, `date` (unique), `requestCount`, `updatedAt` |
+| `backend/src/lib/SerpAPI.ts` | Replaced `cache.canMakeRequest()` and `cache.incrementUsage()` with `SerpApiQuotaService` equivalents; added import |
+| `backend/src/config/index.ts` | Added `serpApiDailyLimit` (default 100) and `serpApiMonthlyLimit` (default 3000) to `AppConfig` and config object |
+
+### Files Verified (No Changes Needed)
+
+| File | Reason |
+|------|--------|
+| `docs/api-reference.md` | Does not enumerate specific SerpAPI daily/monthly quota numbers; only documents error codes and caching TTLs -- still accurate |
+| `backend/src/lib/cache.ts` | DiskCache preserved for response caching; only quota tracking was moved to DB |
+
+### Design Decisions
+
+- **Fail open on DB errors**: If PostgreSQL is unreachable, `canMakeRequest()` returns `true` (allow) and `increment()` logs but swallows errors. This prevents a DB outage from blocking the content pipeline.
+- **Daily row with upsert**: A single row per day with a unique constraint on `date`. The monthly total is computed by summing the last 30 days' rows. This is simpler than maintaining a separate monthly counter.
+- **DiskCache preserved**: Still handles response caching with tiered TTLs (1h for news, 24h for keyword data, 7d for SERP analysis) -- this is a performance optimization, not a correctness requirement, so it stays on ephemeral disk.
+- **Configurable limits**: Env vars `SERPAPI_DAILY_LIMIT` (default 100) and `SERPAPI_MONTHLY_LIMIT` (default 3000) allow adjusting limits without code changes.
+
+### Verification
+
+- [x] `SerpApiQuota` model added to `schema.prisma` with unique date constraint and proper mapping
+- [x] Migration SQL file created at `backend/prisma/migrations/20260627000002_add_serp_api_quotas/migration.sql`
+- [x] `SerpApiQuotaService.ts` created with `getQuotas()`, `increment()`, `canMakeRequest()` -- all with try/catch fail-open
+- [x] Config updated with `serpApiDailyLimit` (100) and `serpApiMonthlyLimit` (3000) in interface and config object
+- [x] `SerpAPI.ts` refactored: import added, `cache.canMakeRequest()` replaced with `await SerpApiQuotaService.canMakeRequest()`, `cache.incrementUsage()` replaced with `await SerpApiQuotaService.increment()`
+- [x] DiskCache still handles response caching (not removed)
+- [x] docs verified -- no changes needed
+- [x] No dangling imports or broken references
+
+---
+
+## Phase 17.1: Admin Sessions in PostgreSQL (Already Implemented) ✅
+
+**Status:** Already implemented and committed in a prior phase.
+
+The `AdminSession` model in `backend/prisma/schema.prisma` provides DB-backed admin sessions:
+- `cuid()` primary key, unique token, 24h TTL
+- Indexed on `[expiresAt]` and `[token]` for fast lookups
+- `AdminSessionService` with create, validate, delete, cleanup methods
+- `adminAuth.ts` middleware fully refactored to use DB instead of in-memory Map
+
+### Files
+- `backend/prisma/schema.prisma` — AdminSession model
+- `backend/prisma/migrations/20260627000001_add_admin_sessions/migration.sql` — Migration
+- `backend/src/services/AdminSessionService.ts` — Service implementation
+- `backend/src/middleware/adminAuth.ts` — Refactored middleware
+- `backend/src/routes/admin/auth.ts` — Auth routes
 

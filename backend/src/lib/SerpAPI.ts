@@ -1,5 +1,6 @@
 import { config } from '../config/index.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { SerpApiQuotaService } from '../services/SerpApiQuotaService.js';
 import { cache } from './cache.js';
 
 // ---------------------------------------------------------------------------
@@ -422,8 +423,8 @@ class SerpAPI {
    * errors to typed AppError instances.
    */
   private async _fetch(endpoint: string, params: Record<string, string>): Promise<any> {
-    // ── Quota check ──────────────────────────────────────────────────
-    if (!cache.canMakeRequest()) {
+    // ── Quota check (DB-backed, persists across restarts) ────────────
+    if (!(await SerpApiQuotaService.canMakeRequest())) {
       console.warn('[SerpAPI] Quota limit reached (daily or monthly). Skipping request.');
       throw new AppError('E001', 'SerpAPI quota limit reached', 429);
     }
@@ -447,8 +448,8 @@ class SerpAPI {
             this._throwForApiError(data.error, response.status);
           }
 
-          // Track successful API usage
-          cache.incrementUsage();
+          // Track successful API usage (DB-backed, persists across restarts)
+          await SerpApiQuotaService.increment();
 
           return data;
         }

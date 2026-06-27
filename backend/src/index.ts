@@ -28,6 +28,7 @@ import adminCategoriesRoutes from './routes/admin/categories.js';
 import adminAnalyticsRoutes from './routes/admin/analytics.js';
 import adminLinksRoutes from './routes/admin/links.js';
 import adminSettingsRoutes from './routes/admin/settings.js';
+import adminCronRoutes from './routes/admin/cron.js';
 // Cron scheduler import is done via dynamic import at startup to avoid
 // TypeScript resolving the cross-package dependency at compile time.
 // This keeps the backend build self-contained and prevents the Docker
@@ -89,6 +90,7 @@ app.use('/api/admin/categories', adminCategoriesRoutes);
 app.use('/api/admin/analytics', adminAnalyticsRoutes);
 app.use('/api/admin', adminLinksRoutes);
 app.use('/api/admin/settings', adminSettingsRoutes);
+app.use('/api/admin/cron', adminCronRoutes);
 
 // Error handler (must be last)
 app.use(errorHandler);

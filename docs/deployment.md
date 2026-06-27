@@ -248,7 +248,7 @@ Fly.io will:
 
 ```bash
 # Health check
-curl -s https://gamedaywire-api.fly.dev/api/health
+curl -s https://gamedaywire.fly.dev/api/health
 
 # Expected response:
 # {"success":true,"status":"healthy","checks":{"database":{"status":"ok","latency_ms":3}}}

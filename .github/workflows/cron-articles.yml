@@ -1,0 +1,71 @@
+# =============================================================================
+# GameDayWire — Cron: Daily Article Generation
+# =============================================================================
+# Triggers the full article generation pipeline twice daily:
+#   - 08:00 UTC: Morning article (sports / entertainment, alternating daily)
+#   - 19:00 UTC: Evening article (entertainment / sports, opposite of morning)
+#
+# These are the most important cron jobs — they produce the content that
+# drives the site. Each trigger runs both endpoints; the backend handles
+# idempotency (duplicate trends are ignored).
+#
+# Prerequisites:
+#   ADMIN_TOKEN — The admin bearer token for API authentication
+#   API_BASE_URL — The Fly.io app URL (e.g. https://gamedaywire.fly.dev)
+#
+# Both secrets must be set in GitHub repository settings:
+#   Settings -> Secrets and variables -> Actions
+# =============================================================================
+
+name: Cron — Articles
+
+on:
+  schedule:
+    # 08:00 UTC daily — Morning article
+    - cron: '0 8 * * *'
+    # 19:00 UTC daily — Evening article
+    - cron: '0 19 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (no side effects)'
+        type: boolean
+        default: false
+
+env:
+  API_BASE_URL: ${{ secrets.API_BASE_URL || 'https://gamedaywire.fly.dev' }}
+  ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+
+jobs:
+  morning_article:
+    name: Morning Article
+    runs-on: ubuntu-latest
+    concurrency:
+      group: cron-morning-article
+      cancel-in-progress: false
+    steps:
+      - name: Trigger morning article generation
+        run: |
+          DRY_RUN="${{ github.event.inputs.dry_run == 'true' && 'true' || 'false' }}"
+          curl --fail --silent --show-error \
+            -X POST "$API_BASE_URL/api/admin/cron/morning-article?dry_run=$DRY_RUN" \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
+            -H "Content-Type: application/json"
+        env:
+          # Override for workflow_dispatch
+          DRY_FLAG: ${{ github.event.inputs.dry_run }}
+
+  evening_article:
+    name: Evening Article
+    runs-on: ubuntu-latest
+    concurrency:
+      group: cron-evening-article
+      cancel-in-progress: false
+    steps:
+      - name: Trigger evening article generation
+        run: |
+          DRY_RUN="${{ github.event.inputs.dry_run == 'true' && 'true' || 'false' }}"
+          curl --fail --silent --show-error \
+            -X POST "$API_BASE_URL/api/admin/cron/evening-article?dry_run=$DRY_RUN" \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
+            -H "Content-Type: application/json"

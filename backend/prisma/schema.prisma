@@ -199,3 +199,26 @@ model SiteSetting {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model AdminSession {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  username  String
+  role      String   @default("admin")
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([expiresAt])
+  @@index([token])
+  @@map("admin_sessions")
+}
+
+model SerpApiQuota {
+  id           String   @id @default(cuid())
+  date         DateTime @unique
+  requestCount Int      @default(0)
+  updatedAt    DateTime @updatedAt
+
+  @@index([date])
+  @@map("serp_api_quotas")
+}

@@ -6,7 +6,9 @@ All 9 scheduled tasks powered by node-cron, their schedules, purposes, exit code
 
 ## Overview
 
-The system uses **node-cron** for scheduled task execution. Each cron job is defined in its own file under `cron/`. Jobs are managed by the Node.js runtime and can be executed as CLI commands for testing.
+The system uses **node-cron** for scheduled task execution. Each cron job is defined in its own file under `cron/`. These files are **thin wrappers** that delegate all logic to static methods on `CronService` in `backend/src/services/CronService.ts`. Jobs are managed by the Node.js runtime and can be executed as CLI commands for testing.
+
+**Architecture:** The `cron/` directory files are thin wrappers that handle only importing from `CronService`, passing through the `dryRun` parameter, and returning a `CronResult`. All orchestration logic (service instantiation, pipeline steps, error handling) lives in `CronService` methods. This eliminates code duplication between the local node-cron scheduler and the production GitHub Actions + Admin API trigger endpoints, which also call `CronService` directly.
 
 ---
 
@@ -204,22 +206,37 @@ A dry run executes all logic (data fetching, scoring, analysis, logging) but **s
 
 ## Production Deployment
 
-### Systemd Timer (Linux Server)
+### GitHub Actions (Current)
 
-For production, configure systemd timers or a cron entry:
+In the Fly.io deployment, cron jobs are triggered by GitHub Actions scheduled workflows that call admin API trigger endpoints on the Fly.io backend. This approach avoids running node-cron inside the Docker container (where only the backend workspace is shipped).
 
-```bash
-# Edit crontab
-crontab -e
+**Workflow files** (in `.github/workflows/`):
 
-# Add entries (example for a Linux server where Node.js app is always running)
-# These assume the app is managed by PM2 or similar process manager
-# The cron jobs are internal to the running Node.js process
-```
+| Workflow                    | Schedule                                    | Jobs Triggered                                  |
+| --------------------------- | ------------------------------------------- | ----------------------------------------------- |
+| `cron-articles.yml`         | Daily 08:00, 19:00 UTC                      | morning_article, evening_article                |
+| `cron-maintenance.yml`      | Daily 01:00, 02:00, 03:00 UTC               | sitemap_generator, keyword_refresh, content_refresh |
+| `cron-trend-monitor.yml`    | Every 3 hours                               | trend_monitor                                   |
+| `cron-weekly.yml`           | Sunday 04:00, 05:00, 06:00 UTC              | link_update, seo_audit, backup                  |
 
-### Docker
+All workflows support `workflow_dispatch` for manual triggering. Each accepts a `dry_run` input parameter for testing without side effects.
 
-When using Docker Compose, the cron jobs run inside the backend container via node-cron. No external cron daemon is required. The `docker-compose.yml` starts the backend Express server which registers all cron schedules on boot.
+**API endpoints** (each workflow calls `POST /api/admin/cron/{job-name}`):
+
+Each endpoint requires `Authorization: Bearer <ADMIN_TOKEN>` and accepts an optional `?dry_run=true` query parameter. Rate limited to 20 requests per hour.
+
+**Required GitHub secrets:**
+
+| Secret          | Description                                                        |
+| --------------- | ------------------------------------------------------------------ |
+| `ADMIN_TOKEN`   | The admin bearer token (same as `ADMIN_TOKEN` in `.env`)           |
+| `API_BASE_URL`  | The Fly.io app URL (defaults to `https://gamedaywire.fly.dev`) |
+
+### Local Node-Cron (Legacy)
+
+When running locally via `npm run dev`, the cron jobs run inside the backend process via node-cron. The `backend/src/index.ts` dynamically imports `cron/scheduler.js` on startup. This gracefully fails in Docker/Fly.io deployments where the cron workspace is not shipped.
+
+The local node-cron approach is still available for development. Use `npm run dev` from the monorepo root, and all 9 scheduled tasks register on boot.
 
 ---
 

@@ -1,0 +1,46 @@
+# =============================================================================
+# GameDayWire — Cron: Trend Monitor
+# =============================================================================
+# Runs every 3 hours to discover and score trending topics from SerpAPI.
+# This is the highest-frequency cron job (8 times per day).
+#
+# Trends are stored in the database and consumed by the article generation
+# pipeline and keyword refresh tasks.
+#
+# Prerequisites:
+#   ADMIN_TOKEN — The admin bearer token for API authentication
+#   API_BASE_URL — The Fly.io app URL (e.g. https://gamedaywire.fly.dev)
+# =============================================================================
+
+name: Cron — Trend Monitor
+
+on:
+  schedule:
+    # Every 3 hours (00:00, 03:00, 06:00, 09:00, 12:00, 15:00, 18:00, 21:00 UTC)
+    - cron: '0 */3 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (no side effects)'
+        type: boolean
+        default: false
+
+env:
+  API_BASE_URL: ${{ secrets.API_BASE_URL || 'https://gamedaywire.fly.dev' }}
+  ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+
+jobs:
+  trend_monitor:
+    name: Trend Monitor
+    runs-on: ubuntu-latest
+    concurrency:
+      group: cron-trend-monitor
+      cancel-in-progress: false
+    steps:
+      - name: Trigger trend discovery
+        run: |
+          DRY_RUN="${{ github.event.inputs.dry_run == 'true' && 'true' || 'false' }}"
+          curl --fail --silent --show-error \
+            -X POST "$API_BASE_URL/api/admin/cron/trend-monitor?dry_run=$DRY_RUN" \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
+            -H "Content-Type: application/json"

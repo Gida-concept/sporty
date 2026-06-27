@@ -15,31 +15,41 @@ const loginSchema = z.object({
   token: z.string().min(1, 'Token is required'),
 });
 
-router.post('/login', loginLimiter, validate(loginSchema), (req: Request, res: Response) => {
-  const { token } = req.body;
-  const sessionToken = createSession(token);
+router.post('/login', loginLimiter, validate(loginSchema), async (req: Request, res: Response) => {
+  try {
+    const { token } = req.body;
+    const sessionToken = await createSession(token);
 
-  if (!sessionToken) {
-    res.status(401).json({
+    if (!sessionToken) {
+      res.status(401).json({
+        success: false,
+        error: {
+          code: 'E010',
+          message: 'Admin authentication failure: invalid token',
+        },
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        authenticated: true,
+        session_token: sessionToken,
+        expires_in: 86400,
+        message: 'Authentication successful',
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    res.status(500).json({
       success: false,
       error: {
-        code: 'E010',
-        message: 'Admin authentication failure: invalid token',
+        code: 'E999',
+        message: 'Authentication service unavailable',
       },
     });
-    return;
   }
-
-  res.json({
-    success: true,
-    data: {
-      authenticated: true,
-      session_token: sessionToken,
-      expires_in: 86400,
-      message: 'Authentication successful',
-    },
-    timestamp: new Date().toISOString(),
-  });
 });
 
 export default router;

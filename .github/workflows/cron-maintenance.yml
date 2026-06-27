@@ -1,0 +1,82 @@
+# =============================================================================
+# GameDayWire — Cron: Daily Maintenance
+# =============================================================================
+# Runs three maintenance jobs daily at off-peak hours:
+#   - 01:00 UTC: Sitemap generator (rebuild XML sitemap, ping search engines)
+#   - 02:00 UTC: Keyword refresh (regenerate keyword matrix from top trends)
+#   - 03:00 UTC: Content refresh (identify and refresh stale articles)
+#
+# All three endpoints run on every trigger (approximately 3 runs/day).
+# Each backend operation is idempotent — duplicate runs are safe.
+#
+# Prerequisites:
+#   ADMIN_TOKEN — The admin bearer token for API authentication
+#   API_BASE_URL — The Fly.io app URL (e.g. https://gamedaywire.fly.dev)
+# =============================================================================
+
+name: Cron — Daily Maintenance
+
+on:
+  schedule:
+    # 01:00 UTC daily — Sitemap generator
+    - cron: '0 1 * * *'
+    # 02:00 UTC daily — Keyword refresh
+    - cron: '0 2 * * *'
+    # 03:00 UTC daily — Content refresh
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (no side effects)'
+        type: boolean
+        default: false
+
+env:
+  API_BASE_URL: ${{ secrets.API_BASE_URL || 'https://gamedaywire.fly.dev' }}
+  ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+
+jobs:
+  sitemap_generator:
+    name: Sitemap Generator
+    runs-on: ubuntu-latest
+    concurrency:
+      group: cron-sitemap-generator
+      cancel-in-progress: false
+    steps:
+      - name: Trigger sitemap generation
+        run: |
+          DRY_RUN="${{ github.event.inputs.dry_run == 'true' && 'true' || 'false' }}"
+          curl --fail --silent --show-error \
+            -X POST "$API_BASE_URL/api/admin/cron/sitemap-generator?dry_run=$DRY_RUN" \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
+            -H "Content-Type: application/json"
+
+  keyword_refresh:
+    name: Keyword Refresh
+    runs-on: ubuntu-latest
+    concurrency:
+      group: cron-keyword-refresh
+      cancel-in-progress: false
+    steps:
+      - name: Trigger keyword refresh
+        run: |
+          DRY_RUN="${{ github.event.inputs.dry_run == 'true' && 'true' || 'false' }}"
+          curl --fail --silent --show-error \
+            -X POST "$API_BASE_URL/api/admin/cron/keyword-refresh?dry_run=$DRY_RUN" \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
+            -H "Content-Type: application/json"
+
+  content_refresh:
+    name: Content Refresh
+    runs-on: ubuntu-latest
+    concurrency:
+      group: cron-content-refresh
+      cancel-in-progress: false
+    steps:
+      - name: Trigger content refresh
+        run: |
+          DRY_RUN="${{ github.event.inputs.dry_run == 'true' && 'true' || 'false' }}"
+          curl --fail --silent --show-error \
+            -X POST "$API_BASE_URL/api/admin/cron/content-refresh?dry_run=$DRY_RUN" \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
+            -H "Content-Type: application/json"

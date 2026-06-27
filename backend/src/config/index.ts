@@ -32,9 +32,16 @@ export interface AppConfig {
   serpApiKey: string;
   groqApiKey: string;
 
+  // SerpAPI quota limits
+  serpApiDailyLimit: number;
+  serpApiMonthlyLimit: number;
+
   // Auth secrets — stay in .env
   adminToken: string;
   webhookSecret: string;
+
+  // Session configuration
+  adminSessionTtlMs: number;
 }
 
 function envString(key: string, defaultValue?: string): string {
@@ -60,8 +67,13 @@ export const config: AppConfig = {
   serpApiKey: envString('SERPAPI_KEY'),
   groqApiKey: envString('GROQ_API_KEY'),
 
+  serpApiDailyLimit: envInt('SERPAPI_DAILY_LIMIT', 100),
+  serpApiMonthlyLimit: envInt('SERPAPI_MONTHLY_LIMIT', 3000),
+
   adminToken: _adminTokenResult.token,
   webhookSecret: envString('WEBHOOK_SECRET', 'dev-webhook-secret'),
+
+  adminSessionTtlMs: envInt('ADMIN_SESSION_TTL', 86400000),
 };
 
 export function validateConfig(): void {

@@ -1,0 +1,83 @@
+# =============================================================================
+# GameDayWire — Cron: Weekly Maintenance
+# =============================================================================
+# Runs every Sunday morning for weekly maintenance tasks:
+#   - 04:00 UTC: Link graph rebuild (TF-IDF similarity matching, tier 1/2 links)
+#   - 05:00 UTC: SEO audit (technical checks: metadata, banned phrases, etc.)
+#   - 06:00 UTC: Database backup (pg_dump with 30-day rotation)
+#
+# All three run on every Sunday trigger. Each operation is idempotent.
+# The backup job requires pg_dump to be available on the Fly.io VM
+# (it falls back gracefully with a log entry if not installed).
+#
+# Prerequisites:
+#   ADMIN_TOKEN — The admin bearer token for API authentication
+#   API_BASE_URL — The Fly.io app URL (e.g. https://gamedaywire.fly.dev)
+# =============================================================================
+
+name: Cron — Weekly Maintenance
+
+on:
+  schedule:
+    # Sunday 04:00 UTC — Link update
+    - cron: '0 4 * * 0'
+    # Sunday 05:00 UTC — SEO audit
+    - cron: '0 5 * * 0'
+    # Sunday 06:00 UTC — Backup
+    - cron: '0 6 * * 0'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (no side effects)'
+        type: boolean
+        default: false
+
+env:
+  API_BASE_URL: ${{ secrets.API_BASE_URL || 'https://gamedaywire.fly.dev' }}
+  ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+
+jobs:
+  link_update:
+    name: Link Graph Update
+    runs-on: ubuntu-latest
+    concurrency:
+      group: cron-link-update
+      cancel-in-progress: false
+    steps:
+      - name: Trigger link graph rebuild
+        run: |
+          DRY_RUN="${{ github.event.inputs.dry_run == 'true' && 'true' || 'false' }}"
+          curl --fail --silent --show-error \
+            -X POST "$API_BASE_URL/api/admin/cron/link-update?dry_run=$DRY_RUN" \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
+            -H "Content-Type: application/json"
+
+  seo_audit:
+    name: SEO Audit
+    runs-on: ubuntu-latest
+    concurrency:
+      group: cron-seo-audit
+      cancel-in-progress: false
+    steps:
+      - name: Trigger SEO audit
+        run: |
+          DRY_RUN="${{ github.event.inputs.dry_run == 'true' && 'true' || 'false' }}"
+          curl --fail --silent --show-error \
+            -X POST "$API_BASE_URL/api/admin/cron/seo-audit?dry_run=$DRY_RUN" \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
+            -H "Content-Type: application/json"
+
+  backup:
+    name: Database Backup
+    runs-on: ubuntu-latest
+    concurrency:
+      group: cron-backup
+      cancel-in-progress: false
+    steps:
+      - name: Trigger database backup
+        run: |
+          DRY_RUN="${{ github.event.inputs.dry_run == 'true' && 'true' || 'false' }}"
+          curl --fail --silent --show-error \
+            -X POST "$API_BASE_URL/api/admin/cron/backup?dry_run=$DRY_RUN" \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
+            -H "Content-Type: application/json"

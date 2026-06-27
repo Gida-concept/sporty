@@ -1,82 +1,89 @@
-import crypto from 'crypto';
 import type { Request, Response, NextFunction } from 'express';
 import { config } from '../config/index.js';
+import { AdminSessionService } from '../services/AdminSessionService.js';
 
-interface AdminSession {
-  token: string;
-  createdAt: Date;
-  expiresAt: Date;
-}
+/**
+ * Express middleware that validates the Bearer token from the Authorization header
+ * against the AdminSession database table.
+ *
+ * Async middleware: if the database is unreachable, the request is denied (fail closed).
+ *
+ * Usage: router.get('/path', adminAuth, handler)
+ */
+export async function adminAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const authHeader = req.headers.authorization;
 
-const sessions = new Map<string, AdminSession>();
-
-const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
-
-setInterval(() => {
-  cleanupExpiredSessions();
-}, CLEANUP_INTERVAL_MS);
-
-export function adminAuth(req: Request, res: Response, next: NextFunction): void {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    res.status(401).json({
-      success: false,
-      error: {
-        code: 'E010',
-        message: 'Missing or invalid authorization header. Expected: Bearer <token>',
-      },
-    });
-    return;
-  }
-
-  const token = authHeader.slice(7);
-  const session = sessions.get(token);
-
-  if (!session || session.expiresAt <= new Date()) {
-    if (session) {
-      sessions.delete(token);
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.status(401).json({
+        success: false,
+        error: {
+          code: 'E010',
+          message: 'Missing or invalid authorization header. Expected: Bearer <token>',
+        },
+      });
+      return;
     }
-    res.status(401).json({
+
+    const token = authHeader.slice(7);
+    const session = await AdminSessionService.validate(token);
+
+    if (!session) {
+      res.status(401).json({
+        success: false,
+        error: {
+          code: 'E011',
+          message: 'Session expired or invalid. Please login again.',
+        },
+      });
+      return;
+    }
+
+    next();
+  } catch (err) {
+    // Database error or unexpected failure — fail closed
+    res.status(500).json({
       success: false,
       error: {
-        code: 'E011',
-        message: 'Session expired or invalid. Please login again.',
+        code: 'E999',
+        message: 'Authentication service unavailable. Please try again later.',
       },
     });
-    return;
   }
-
-  next();
 }
 
-export function createSession(password: string): string | null {
+/**
+ * Verify a password against the configured ADMIN_TOKEN and create a new
+ * database-backed session if it matches.
+ *
+ * Returns the session token string on success, or null on failure.
+ */
+export async function createSession(password: string): Promise<string | null> {
   if (password !== config.adminToken) {
     return null;
   }
 
-  const now = new Date();
-  const token = crypto.randomUUID();
-
-  sessions.set(token, {
-    token,
-    createdAt: now,
-    expiresAt: new Date(now.getTime() + SESSION_TTL_MS),
-  });
-
-  return token;
-}
-
-export function destroySession(token: string): void {
-  sessions.delete(token);
-}
-
-export function cleanupExpiredSessions(): void {
-  const now = new Date();
-  for (const [token, session] of sessions.entries()) {
-    if (session.expiresAt <= now) {
-      sessions.delete(token);
-    }
+  try {
+    const session = await AdminSessionService.create('admin', 'admin');
+    return session.token;
+  } catch {
+    return null;
   }
+}
+
+/**
+ * Delete a session from the database (logout).
+ * Safe to call even if the token doesn't exist.
+ */
+export async function destroySession(token: string): Promise<void> {
+  await AdminSessionService.delete(token);
+}
+
+/**
+ * Remove all expired sessions from the database.
+ * Returns the count of deleted sessions.
+ * Designed to be called by a periodic maintenance cron job or on server startup.
+ */
+export async function cleanupExpiredSessions(): Promise<number> {
+  return AdminSessionService.cleanup();
 }

@@ -138,6 +138,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'));"
 | `/api/admin/categories/:id` (DELETE) | 20/hour             | 2/minute  | Category deletion — token required                  |
 | `/api/admin/analytics`               | 50/hour             | 5/minute  | Analytics data — token required                     |
 | `/api/admin/settings`                | 100/hour            | 10/minute | Get/update site settings — token required           |
+| `/api/admin/cron/*`                  | 20/hour             | 5/minute  | Cron job trigger endpoints — token required         |
 
 #### Cache TTL Summary
 
