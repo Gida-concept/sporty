@@ -28,6 +28,8 @@
 | **17 ✅**    | SerpAPI quotas moved to PostgreSQL for persistence across Fly.io deploys     | 5 files    | 1          |
 | **17.1 ✅**  | Admin sessions in PostgreSQL (Already Implemented)                           | —          | —          |
 | **18 ✅**  | Vercel frontend deployment — static generation timeout fixes                | 5 files    | 1          |
+| **18.1 ✅** | Fix Fly.io startup deadlock — app.listen before async init | 1 file | 1 |
+| **18.2 ✅** | Fix health endpoint non-blocking + Prisma connection timeout | 2 files | 1 |
 
 ---
 
@@ -618,6 +620,29 @@ The `AdminSession` model in `backend/prisma/schema.prisma` provides DB-backed ad
 
 **Build status:** Compilation, type-check, static generation all pass. Linting skipped (`eslint.ignoreDuringBuilds`). Data pages now render on-demand (SSR), static pages have no fetch calls.
 
+## Phase 18.1: Fix Fly.io Startup Deadlock — Move app.listen Before Async Init ✅
+
+**Problem:** `app.listen()` was inside an async IIFE that first awaited `SiteSettingsService.getCorsOrigin()` (a Prisma database query). If the DB connection hung during startup (e.g., Supabase cold start), `app.listen()` was never reached — Express never bound to port 8080, health checks failed, and the container got killed.
+
+**Fix:** In `backend/src/index.ts`, moved `app.listen(config.port, ...)` to execute synchronously on the main thread before any async work. The CORS origin loading and cron scheduler import now run as a fire-and-forget background IIFE with separate try/catch blocks.
+
+**File modified:** `backend/src/index.ts`
+
+## Phase 18.2: Fix Health Endpoint and Prisma Connection Timeout ✅
+
+**Problem:** Even after the startup deadlock fix, every request still timed out because:
+
+1. **Health endpoint blocked on DB** — `backend/src/routes/health.ts` awaited `prisma.$queryRaw`SELECT 1`` inline. When the DB was unreachable, the health check hung indefinitely, Fly.io health checks failed, and the instance was marked unhealthy.
+
+2. **No Prisma connection timeout** — `backend/src/lib/prisma.ts` created `new PrismaClient()` without any timeout config. The underlying `pg` driver would block forever on a TCP connection attempt to an unreachable host.
+
+**Fixes applied:**
+
+| File | Change |
+|------|--------|
+| `backend/src/routes/health.ts` | Health endpoint now returns HTTP 200 immediately. DB ping runs in background via `setInterval` (30s). Module-level cache tracks `dbStatus`, `dbLatency`, `dbMessage`. |
+| `backend/src/lib/prisma.ts` | Added `ensureConnectionTimeout()` helper that appends `?connect_timeout=10` to `DATABASE_URL`. Passed via PrismaClient's `datasources.db.url` option. Original env var not mutated. |
+
 ---
 
 ## Phase 16.12: Fix Fly.io Startup Deadlock -- app.listen() Moved Before Async Init
@@ -672,4 +697,30 @@ app.listen(config.port, ...);  // Called FIRST -- port binds immediately
 - [x] `prisma.ts` verified -- minimal `new PrismaClient()` with no blocking config; no change needed
 - [x] TypeScript type-check passes (`tsc --noEmit` = 0 errors after `prisma generate --schema=backend/prisma/schema.prisma`)
 - [x] No dangling imports or broken references
+
+---
+
+## Phase 18.3: Fix CORS Middleware Bug -- Callback Never Invoked
+
+**Problem:** The `cors` package's `origin` function must call its callback to proceed with the request. The code at `backend/src/index.ts:45` was `origin: () => corsOrigin,` -- an arrow function that ignored its arguments and never called the callback. This caused every incoming request to hang indefinitely at the CORS middleware.
+
+**Fix:** Changed to a proper callback-style function that receives `(origin, cb)` and calls `cb(null, corsOrigin)`.
+
+**File modified:** `backend/src/index.ts` (line 45)
+
+**Before:**
+```typescript
+origin: () => corsOrigin,
+```
+
+**After:**
+```typescript
+origin: (_origin: string | undefined, cb: (err: Error | null, origin?: string) => void) => {
+    cb(null, corsOrigin);
+  },
+```
+
+**Verification:** `tsc --noEmit` passes with zero errors.
+
+---
 

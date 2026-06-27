@@ -42,7 +42,9 @@ app.set('trust proxy', 1);
 // The actual origin value is loaded during async startup below.
 let corsOrigin = 'http://localhost:3000';
 app.use(cors({
-  origin: () => corsOrigin,
+  origin: (_origin: string | undefined, cb: (err: Error | null, origin?: string) => void) => {
+    cb(null, corsOrigin);
+  },
 }));
 app.use(helmet());
 
