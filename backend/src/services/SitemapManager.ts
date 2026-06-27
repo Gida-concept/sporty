@@ -46,7 +46,7 @@ class SitemapManager {
    */
   async generateSitemapIndex(): Promise<string> {
     const now = new Date().toISOString();
-    const baseUrl = this.getBaseUrl();
+    const baseUrl = await this.getBaseUrl();
 
     return `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -82,7 +82,7 @@ class SitemapManager {
 
     const limit = MAX_SITEMAP_URLS;
     const sliced = resolvedArticles.slice(0, limit);
-    const baseUrl = this.getBaseUrl();
+    const baseUrl = await this.getBaseUrl();
 
     const urls = sliced.map((article) => {
       const ageInDays = this.ageInDays(article.publishedAt ?? article.createdAt);
@@ -113,7 +113,7 @@ ${urls.join('\n')}
    * Generate the static-pages sitemap (urlset) for known site routes.
    */
   async generatePageSitemap(): Promise<string> {
-    const baseUrl = this.getBaseUrl();
+    const baseUrl = await this.getBaseUrl();
 
     const urls = STATIC_PAGES.map((page) => {
       const loc = page.path ? `${baseUrl}/${page.path}/` : `${baseUrl}/`;

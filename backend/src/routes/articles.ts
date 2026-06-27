@@ -7,6 +7,15 @@ import prisma from '../lib/prisma.js';
 const router: Router = Router();
 const rateLimiter = createRateLimiter({ windowMs: 3600000, max: 200 });
 
+function safeJsonParse(value: string | null): unknown {
+  if (!value) return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
 router.get(
   '/',
   rateLimiter,
@@ -65,15 +74,6 @@ router.get(
       const include = {
         categories: { include: { category: true } },
       };
-
-      function safeJsonParse(value: string | null): unknown {
-        if (!value) return null;
-        try {
-          return JSON.parse(value);
-        } catch {
-          return null;
-        }
-      }
 
       // Single article by slug — return full data
       if (slug) {
@@ -191,6 +191,131 @@ router.get(
         total,
         offset,
         limit,
+        cached: false,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// GET /featured — Featured articles (front page hero)
+// ---------------------------------------------------------------------------
+
+router.get(
+  '/featured',
+  rateLimiter,
+  cache({ ttl: 600 }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const limitParam = parseInt(req.query.limit as string, 10) || 5;
+      const limit = Math.min(Math.max(1, limitParam), 50);
+
+      const articles = await prisma.article.findMany({
+        where: {
+          status: 'published',
+          featured: true,
+        },
+        orderBy: { publishedAt: 'desc' },
+        take: limit,
+        include: {
+          categories: { include: { category: true } },
+        },
+      });
+
+      res.json({
+        success: true,
+        data: {
+          articles: articles.map((a) => ({
+            id: a.id,
+            slug: a.slug,
+            title: a.title,
+            meta_description: a.metaDescription,
+            h1: a.h1,
+            categories: a.categories.map((ac) => ({
+              id: ac.category.id,
+              name: ac.category.name,
+              slug: ac.category.slug,
+            })),
+            word_count: a.wordCount,
+            reading_level: a.readingLevel,
+            quality_score: a.qualityScore,
+            status: a.status,
+            published_at: a.publishedAt?.toISOString() ?? null,
+            updated_at: a.updatedAt.toISOString(),
+            pageviews: a.pageviews,
+            google_position: a.googlePosition,
+            image_url: a.imageUrl,
+            excerpt: a.excerpt,
+            author: a.author,
+            featured: a.featured,
+            tags: safeJsonParse(a.tags) as string[] | null,
+          })),
+        },
+        count: articles.length,
+        cached: false,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// GET /trending — Most-viewed published articles
+// ---------------------------------------------------------------------------
+
+router.get(
+  '/trending',
+  rateLimiter,
+  cache({ ttl: 600 }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const limitParam = parseInt(req.query.limit as string, 10) || 5;
+      const limit = Math.min(Math.max(1, limitParam), 50);
+
+      const articles = await prisma.article.findMany({
+        where: { status: 'published' },
+        orderBy: { pageviews: 'desc' },
+        take: limit,
+        include: {
+          categories: { include: { category: true } },
+        },
+      });
+
+      res.json({
+        success: true,
+        data: {
+          articles: articles.map((a) => ({
+            id: a.id,
+            slug: a.slug,
+            title: a.title,
+            meta_description: a.metaDescription,
+            h1: a.h1,
+            categories: a.categories.map((ac) => ({
+              id: ac.category.id,
+              name: ac.category.name,
+              slug: ac.category.slug,
+            })),
+            word_count: a.wordCount,
+            reading_level: a.readingLevel,
+            quality_score: a.qualityScore,
+            status: a.status,
+            published_at: a.publishedAt?.toISOString() ?? null,
+            updated_at: a.updatedAt.toISOString(),
+            pageviews: a.pageviews,
+            google_position: a.googlePosition,
+            image_url: a.imageUrl,
+            excerpt: a.excerpt,
+            author: a.author,
+            featured: a.featured,
+            tags: safeJsonParse(a.tags) as string[] | null,
+          })),
+        },
+        count: articles.length,
         cached: false,
         timestamp: new Date().toISOString(),
       });
