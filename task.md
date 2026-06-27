@@ -27,6 +27,7 @@
 | **16.11 ✅** | Cron duplication refactor — thin wrappers delegate to CronService            | 10 files   | 1          |
 | **17 ✅**    | SerpAPI quotas moved to PostgreSQL for persistence across Fly.io deploys     | 5 files    | 1          |
 | **17.1 ✅**  | Admin sessions in PostgreSQL (Already Implemented)                           | —          | —          |
+| **18 ✅**  | Vercel frontend deployment — static generation timeout fixes                | 5 files    | 1          |
 
 ---
 
@@ -586,4 +587,89 @@ The `AdminSession` model in `backend/prisma/schema.prisma` provides DB-backed ad
 - `backend/src/services/AdminSessionService.ts` — Service implementation
 - `backend/src/middleware/adminAuth.ts` — Refactored middleware
 - `backend/src/routes/admin/auth.ts` — Auth routes
+
+---
+
+## Phase 18: Vercel Frontend Deployment ✅
+
+**Goal:** Deploy the Next.js frontend to Vercel and fix the static generation timeout.
+
+**Problems Fixed:**
+
+1. **Static page generation timeout** — The homepage `/page` and category pages (`/category/sports`, `/category/entertainment`) are server components that fetch data during `next build` static generation. When `NEXT_PUBLIC_USE_MOCK_DATA=false`, they make real `fetch()` calls to the backend. If the backend is unreachable from the Vercel build environment, `fetch()` hangs on pending TCP connections that never resolve, exceeding the 60-second static generation timeout after 3 retries.
+
+2. **No fetch timeout protection** — The `.catch(() => null)` error handlers never fire because hanging TCP connections don't settle. AbortController timeout needed as defense-in-depth.
+
+**Files Modified:**
+
+| File | Change |
+|------|--------|
+| `frontend/app/page.tsx` | Changed `revalidate = 300` to `dynamic = 'force-dynamic'` — homepage renders on-demand (SSR) instead of at build time |
+| `frontend/app/category/sports/page.tsx` | Added `export const dynamic = 'force-dynamic'` — SSR for sports category page |
+| `frontend/app/category/entertainment/page.tsx` | Added `export const dynamic = 'force-dynamic'` — SSR for entertainment category page |
+| `frontend/lib/api-client.ts` | Added `fetchWithTimeout()` helper using `AbortController` with 15-second timeout; all 7 non-mock fetch calls now use it |
+| `frontend/lib/admin-api.ts` | Added same AbortController-based 15-second timeout to `getPublicSettings()` |
+
+**What is NOT affected:**
+- Dynamic routes (`/article/[slug]`, `/tag/[tag]`) — no `generateStaticParams`, never statically generated
+- Admin pages — all `'use client'`, fetched in browser
+- Static pages (`/about`, `/contact`, `/privacy`, etc.) — no data fetching
+- Mock data path — returns synchronously without fetch calls
+
+**Build status:** Compilation, type-check, static generation all pass. Linting skipped (`eslint.ignoreDuringBuilds`). Data pages now render on-demand (SSR), static pages have no fetch calls.
+
+---
+
+## Phase 16.12: Fix Fly.io Startup Deadlock -- app.listen() Moved Before Async Init
+
+**Goal:** Fix Fly.io deploy deadlock where the app never starts because `app.listen()` is inside an async IIFE that first awaits a Prisma database query. If the DB connection hangs, Express never binds to the port and Fly.io health checks fail.
+
+### Problem
+
+The startup code in `backend/src/index.ts` had this structure:
+
+```
+(async () => {
+  corsOrigin = await settingsService.getCorsOrigin();  // HANGS if DB unreachable
+  await import('../../cron/scheduler.js');               // also async
+  app.listen(config.port, ...);                          // NEVER REACHED if above hangs
+})();
+```
+
+On Fly.io, if PostgreSQL is slow to connect on startup (common with Supabase cold starts), the `prisma.siteSetting.findMany()` call inside `getCorsOrigin()` never resolves, so `app.listen()` is never called, the port stays unbound, health checks fail immediately, and Fly.io kills the container.
+
+### Fix Applied
+
+Reordered the startup sequence so `app.listen()` is called **first** (synchronously on the main thread), and async initialization runs as a fire-and-forget background task:
+
+```
+app.listen(config.port, ...);  // Called FIRST -- port binds immediately
+
+(async () => {
+  // Runs in background, cannot block app.listen()
+  corsOrigin = await settingsService.getCorsOrigin();    // May fail gracefully
+  await import('../../cron/scheduler.js');                // May fail gracefully
+})();
+```
+
+**Specific changes:**
+1. **Moved `app.listen()` outside the async IIFE** -- now called synchronously on the main thread when `isDirectRun` is true.
+2. **Demoted async init to a fire-and-forget IIFE** -- CORS origin loading and cron scheduler start run in the background. Each is wrapped in its own try/catch, so one failure does not block the other.
+3. **Cron catch message already uses `console.info`** (was fixed in Phase 16.9) -- no change needed there.
+4. **PrismaClient was already minimal** (`new PrismaClient()` with no connection timeout options) -- left as-is because Prisma doesn't support a constructor-level `connectionTimeout` option; the fix is the structural reorder above, which solves the root cause.
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `backend/src/index.ts` | Moved `app.listen()` before the async IIFE; demoted CORS/cron loading to fire-and-forget with separate try/catch blocks |
+
+### Verification
+
+- [x] `app.listen()` is now called synchronously before any async DB operations
+- [x] CORS origin loading runs in background with try/catch and uses fallback on failure
+- [x] Cron scheduler loading runs in background with try/catch and logs info if unavailable
+- [x] `prisma.ts` verified -- minimal `new PrismaClient()` with no blocking config; no change needed
+- [x] TypeScript type-check passes (`tsc --noEmit` = 0 errors after `prisma generate --schema=backend/prisma/schema.prisma`)
+- [x] No dangling imports or broken references
 

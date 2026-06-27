@@ -103,41 +103,40 @@ const isDirectRun =
   (scriptPath.endsWith('/index.ts') || scriptPath.endsWith('/index.js'));
 
 if (isDirectRun) {
-  // Async startup: load DB-backed settings before listening
+  // Start listening FIRST so health checks and port binding happen immediately,
+  // even before async initialization (CORS loading, cron) completes.
+  // This prevents Fly.io startup deadlocks where a DB hang blocks app.listen().
+  app.listen(config.port, () => {
+    console.log(`[GameDayWire] Backend running on port ${config.port}`);
+
+    if (!adminTokenIsFromEnv) {
+      const line = '='.repeat(50);
+      console.log('');
+      console.log(`ADMIN LOGIN TOKEN (auto-generated - not stored, save it now)`);
+      console.log(`  Token: ${config.adminToken}`);
+      console.log(`  Set ADMIN_TOKEN in .env for a permanent token`);
+      console.log(`  ${line}`);
+      console.log('');
+    } else {
+      console.log('[GameDayWire] Admin login configured via ADMIN_TOKEN environment variable.');
+    }
+  });
+
+  // Async startup (non-blocking -- app.listen already called above)
   (async () => {
     try {
       const settingsService = SiteSettingsService.getInstance();
       corsOrigin = await settingsService.getCorsOrigin();
     } catch (err) {
-      console.warn('[Startup] Could not load CORS origin from DB, using default:', (err as Error).message);
+      console.warn('[Startup] Could not load CORS origin from DB, using fallback:', (err as Error).message);
     }
 
-    // Dynamic import with variable path prevents TypeScript from resolving
-    // the cross-package dependency at compile time, keeping the backend
-    // build self-contained. Gracefully handles cron not being available
-    // (e.g. in Docker deployments where only the backend is deployed).
     try {
       const cronPath = '../../cron/scheduler.js';
       const { start: startCron } = await import(cronPath);
       startCron();
     } catch (err) {
-      console.info('[Startup] Cron scheduler not available (expected in Docker/Fly.io deployments). Scheduled tasks will not run in this deployment.');
+      console.info('[Startup] Cron scheduler not available (expected in Docker/Fly.io deployments):', (err as Error).message);
     }
-
-    app.listen(config.port, () => {
-      console.log(`[GameDayWire] Backend running on port ${config.port}`);
-
-      if (!adminTokenIsFromEnv) {
-        const line = '='.repeat(50);
-        console.log('');
-        console.log(`ADMIN LOGIN TOKEN (auto-generated - not stored, save it now)`);
-        console.log(`  Token: ${config.adminToken}`);
-        console.log(`  Set ADMIN_TOKEN in .env for a permanent token`);
-        console.log(`  ${line}`);
-        console.log('');
-      } else {
-        console.log('[GameDayWire] Admin login configured via ADMIN_TOKEN environment variable.');
-      }
-    });
   })();
 }
