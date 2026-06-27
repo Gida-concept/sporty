@@ -1,6 +1,32 @@
 import { CATEGORIES, DEFAULT_PAGE_SIZE, RELATED_ARTICLES_COUNT } from './constants';
 
 const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_DATA !== 'false';
+const FETCH_TIMEOUT_MS = 15000;
+
+/* ------------------------------------------------------------------ */
+/*  Fetch helper with timeout (prevents hanging during static gen)     */
+/* ------------------------------------------------------------------ */
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs = FETCH_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  // Coexist with any existing signal (e.g. from a parent AbortController)
+  const existingSignal = options.signal;
+  if (existingSignal) {
+    existingSignal.addEventListener('abort', () => controller.abort());
+  }
+
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 /* ------------------------------------------------------------------ */
 /*  Frontend types (interface with components)                         */
@@ -551,7 +577,7 @@ export async function getTrendingArticles(limit = 5): Promise<Article[]> {
       .sort((a, b) => b.pageviews - a.pageviews)
       .slice(0, limit);
   }
-  const res = await fetch(`/api/articles?sort=pageviews&limit=${limit}`, {
+  const res = await fetchWithTimeout(`/api/articles?sort=pageviews&limit=${limit}`, {
     next: { revalidate: 300 },
   });
   const json = await res.json();
@@ -566,7 +592,7 @@ export async function trackPageview(articleId: string): Promise<void> {
     pageviewStore.set(articleId, (pageviewStore.get(articleId) || 0) + 1);
     return;
   }
-  await fetch(`/api/track?article_id=${encodeURIComponent(articleId)}`).catch(() => {});
+  await fetchWithTimeout(`/api/track?article_id=${encodeURIComponent(articleId)}`).catch(() => {});
 }
 
 export function getMockPageviews(articleId: string): number {
@@ -605,7 +631,7 @@ export async function getArticles(params?: {
     p.set('offset', String((params.page - 1) * (params.pageSize || DEFAULT_PAGE_SIZE)));
   if (params?.pageSize) p.set('limit', String(params.pageSize));
   if (params?.search) p.set('search', params.search);
-  const res = await fetch(`/api/articles?${p}`, {
+  const res = await fetchWithTimeout(`/api/articles?${p}`, {
     next: { revalidate: 300 },
   });
   const json = await res.json();
@@ -632,7 +658,7 @@ export async function getArticleBySlug(slug: string): Promise<ArticleDetailRespo
     const headings = extractHeadings(article.contentBlocks);
     return { article, relatedArticles: related, faqs: generateMockFAQs(), headings };
   }
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     `/api/articles?slug=${encodeURIComponent(slug)}&include_body=true`,
     {
       next: { revalidate: 60 },
@@ -649,7 +675,7 @@ export async function getArticleBySlug(slug: string): Promise<ArticleDetailRespo
 
 export async function getFeaturedArticles(limit = 3): Promise<Article[]> {
   if (USE_MOCK_DATA) return MOCK_ARTICLES.filter((a) => a.featured).slice(0, limit);
-  const res = await fetch(`/api/articles?featured=true&limit=${limit}`, {
+  const res = await fetchWithTimeout(`/api/articles?featured=true&limit=${limit}`, {
     next: { revalidate: 300 },
   });
   const json = await res.json();
@@ -662,7 +688,7 @@ export async function getTrends(params?: { category?: string; limit?: number }):
   const p = new URLSearchParams();
   if (params?.category) p.set('category', params.category);
   if (params?.limit) p.set('limit', String(params.limit));
-  const res = await fetch(`/api/trends?${p}`, {
+  const res = await fetchWithTimeout(`/api/trends?${p}`, {
     next: { revalidate: 600 },
   });
   const json = await res.json();
@@ -715,7 +741,7 @@ export async function getArticlesByTag(
       pagination: { page, pageSize, totalPages, totalItems: filtered.length },
     };
   }
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     `/api/articles?tag=${encodeURIComponent(tag)}&offset=${(page - 1) * pageSize}&limit=${pageSize}`,
     {
       next: { revalidate: 300 },

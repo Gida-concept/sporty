@@ -147,8 +147,14 @@ export async function updateSettings(settings: Record<string, string>): Promise<
 }
 
 export async function getPublicSettings(): Promise<any> {
-  const res = await fetch(`${API_BASE}/settings`);
-  if (!res.ok) return {};
-  const json = await res.json();
-  return json.data || {};
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch(`${API_BASE}/settings`, { signal: controller.signal });
+    if (!res.ok) return {};
+    const json = await res.json();
+    return json.data || {};
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }

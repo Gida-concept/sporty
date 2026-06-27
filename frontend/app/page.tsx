@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { getArticles, getTrends } from '@/lib/api-client';
 import { formatDate } from '@/lib/formatters';
 
-export const revalidate = 300; // ISR: revalidate every 5 minutes
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Sports & Entertainment News — Latest Analysis and Trends',

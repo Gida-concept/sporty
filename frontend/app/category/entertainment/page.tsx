@@ -6,6 +6,8 @@ import CategoryHero from '@/components/layout/CategoryHero';
 import Sidebar from '@/components/layout/Sidebar';
 import { getArticles } from '@/lib/api-client';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'Entertainment',
 };
