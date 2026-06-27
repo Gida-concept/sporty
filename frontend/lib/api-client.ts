@@ -1,6 +1,6 @@
 import { CATEGORIES, DEFAULT_PAGE_SIZE, RELATED_ARTICLES_COUNT } from './constants';
 
-const USE_MOCK_DATA = true;
+const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_DATA !== 'false';
 
 /* ------------------------------------------------------------------ */
 /*  Frontend types (interface with components)                         */
