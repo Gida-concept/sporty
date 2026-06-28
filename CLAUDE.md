@@ -128,7 +128,7 @@ SerpAPI (Search Data) → Express Backend (Services) → PostgreSQL (via Prisma/
 ### External API Clients
 
 - **SerpAPI** (`backend/src/lib/SerpAPI.ts`) — Trends, SERP analysis, keyword validation, news, PAA, related searches
-- **Groq API** (`backend/src/lib/GroqAPI.ts`) — Llama 4 70B (primary), Mixtral 8x7B (fallback), temp 0.3, max 4096 tokens, JSON mode
+- **Groq API** (`backend/src/lib/GroqAPI.ts`) — Llama 3.3 70B Versatile (primary), Llama 4 Scout 17B (fallback), temp 0.3, max 4096 tokens, JSON mode
 ### Cron Jobs (9 scheduled tasks)
 
 | Job               | Schedule (UTC)      | Purpose                                                 |

@@ -204,7 +204,7 @@ The system sends a structured prompt containing the full Content Guide to Groq, 
 
 **Groq Parameters:**
 
-- Model: `llama-4-70b` (primary), `mixtral-8x7b` (fallback)
+- Model: `llama-3.3-70b-versatile` (primary), `meta-llama/llama-4-scout-17b-16e-instruct` (fallback)
 - Temperature: 0.3 (factual consistency)
 - Max tokens: 4096
 - Top-p: 0.9

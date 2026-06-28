@@ -107,7 +107,7 @@ SerpAPI (Search Data) -> Express Backend (Services) -> PostgreSQL (via Prisma/Su
 | Position tracking  | `search.json`       | `q=site:yourdomain.com`                | Weekly audit                  | ~$10/month      |
 | **Total**          |                     |                                        |                               | **~$140/month** |
 
-**Groq API** — AI content generation via `/openai/v1/chat/completions`. Primary model: `llama-4-70b` (fast inference, ~800 tokens/sec). Fallback: `mixtral-8x7b`. Configuration: temperature 0.3, max tokens 4096, top-p 0.9, JSON mode enabled. Retry up to 3 attempts with 5-second delay. Timeout: 60s for generation, 30s for quality validation.
+**Groq API** — AI content generation via `/openai/v1/chat/completions`. Primary model: `llama-3.3-70b-versatile` (fast inference, ~800 tokens/sec). Fallback: `meta-llama/llama-4-scout-17b-16e-instruct`. Configuration: temperature 0.3, max tokens 4096, top-p 0.9, JSON mode enabled. Retry up to 3 attempts with 5-second delay. Timeout: 60s for generation, 30s for quality validation.
 
 ### 2.5 Newsletter Subscription System
 

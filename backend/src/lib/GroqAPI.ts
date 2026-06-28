@@ -45,8 +45,8 @@ export interface ChatCompletionResponse {
 // ---------------------------------------------------------------------------
 
 const BASE_URL = 'https://api.groq.com/openai/v1';
-const PRIMARY_MODEL = 'llama4-70b-8192';
-const FALLBACK_MODEL = 'mixtral-8x7b-32768';
+const PRIMARY_MODEL = 'llama-3.3-70b-versatile';
+const FALLBACK_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
 const DEFAULT_TEMPERATURE = 0.3;
 const DEFAULT_MAX_TOKENS = 4096;
 const MAX_RETRIES = 3;
@@ -54,8 +54,8 @@ const RETRY_DELAYS_MS = [1000, 2000, 4000];
 
 /** Approximate industry-standard pricing per 1M tokens. */
 const MODEL_PRICING: Record<string, { inputPer1M: number; outputPer1M: number }> = {
-  'llama4-70b-8192': { inputPer1M: 0.15, outputPer1M: 0.6 },
-  'mixtral-8x7b-32768': { inputPer1M: 0.24, outputPer1M: 0.24 },
+  'llama-3.3-70b-versatile': { inputPer1M: 0.59, outputPer1M: 0.79 },
+  'meta-llama/llama-4-scout-17b-16e-instruct': { inputPer1M: 0.15, outputPer1M: 0.6 },
 };
 
 // ---------------------------------------------------------------------------
@@ -88,7 +88,7 @@ class GroqAPI {
   /**
    * Send a chat completion request.
    *
-   * Uses the primary Llama 4 model by default. Pass `model` in params to
+   * Uses the primary Llama 3.3 70B model by default. Pass `model` in params to
    * override, or use {@link generateWithFallback} for automatic fallback.
    */
   async generateChatCompletion(params: ChatCompletionParams): Promise<ChatCompletionResponse> {
@@ -149,7 +149,7 @@ class GroqAPI {
   /**
    * Generate a chat completion with automatic model fallback.
    *
-   * Tries the primary Llama 4 model first. On any failure (including
+   * Tries the primary Llama 3.3 70B model first. On any failure (including
    * rate-limit or server errors exhausted after retries) the call is
    * retried once with the Mixtral fallback model using the same prompt
    * parameters.
