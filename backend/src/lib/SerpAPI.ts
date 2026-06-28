@@ -162,7 +162,7 @@ class SerpAPI {
    * Returns an empty array on transient errors; throws on quota/API errors.
    */
   async getTrendingNow(geo?: string): Promise<TrendingNowResult[]> {
-    const g = geo || 'us';
+    const g = (geo || 'us').toUpperCase();
     try {
       const data = await this._fetchWithCache('getTrendingNow', '/search.json', {
         api_key: config.serpApiKey,

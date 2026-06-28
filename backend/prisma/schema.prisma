@@ -216,8 +216,8 @@ model AdminSession {
 model SerpApiQuota {
   id           String   @id @default(cuid())
   date         DateTime @unique
-  requestCount Int      @default(0)
-  updatedAt    DateTime @updatedAt
+  requestCount Int      @default(0) @map("request_count")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@index([date])
   @@map("serp_api_quotas")
