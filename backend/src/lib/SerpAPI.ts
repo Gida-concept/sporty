@@ -172,8 +172,13 @@ class SerpAPI {
         only_active: 'true',
       });
 
+      console.log(`[SerpAPI] getTrendingNow raw response keys: ${Object.keys(data).join(', ')}`);
+
       const items = data.trending_searches;
-      if (!items || !Array.isArray(items)) return [];
+      if (!items || !Array.isArray(items)) {
+        console.warn(`[SerpAPI] getTrendingNow: 'trending_searches' field missing or not array. Response keys: ${Object.keys(data).join(', ')}`);
+        return [];
+      }
 
       return items
         .filter((item: any) => (item.search_volume || 0) >= 500)

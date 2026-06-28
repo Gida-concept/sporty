@@ -14,7 +14,6 @@ import ImageHandler from './ImageHandler.js';
 import Publisher from './Publisher.js';
 import ContentRefresher from './ContentRefresher.js';
 import SitemapManager from './SitemapManager.js';
-import { cache } from '../lib/cache.js';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
@@ -75,17 +74,6 @@ export class CronService {
 
   static async trendMonitor(options: CronOptions = {}): Promise<CronResult> {
     const { dryRun = false } = options;
-
-    // Early-exit if SerpAPI quota is insufficient
-    if (!cache.canMakeRequest()) {
-      console.log('[CronService:trendMonitor] SerpAPI quota insufficient -- skipping');
-      return {
-        success: true,
-        exitCode: 0,
-        message: 'Skipped -- SerpAPI quota insufficient',
-        details: { quotaExceeded: true },
-      };
-    }
 
     const serpAPI = new SerpAPI();
     const trendFinder = new TrendFinder(serpAPI, prisma);
