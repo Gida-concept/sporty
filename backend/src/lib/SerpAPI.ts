@@ -143,7 +143,8 @@ class SerpAPI {
 
     const items = data.trending_searches;
     if (!items || !Array.isArray(items) || items.length === 0) {
-      throw new AppError('E002', 'SerpAPI empty results', 502);
+      console.warn(`[SerpAPI] getTrendingSearches returned empty results (free plan — returning [])`);
+      return [];
     }
 
     return items.map((item: any) => ({
@@ -232,7 +233,8 @@ class SerpAPI {
 
     const items = data.related_searches;
     if (!items || !Array.isArray(items) || items.length === 0) {
-      throw new AppError('E002', 'SerpAPI empty results', 502);
+      console.warn(`[SerpAPI] getRelatedSearches returned empty results for "${query}" (free plan — returning [])`);
+      return [];
     }
 
     return items.map((item: any) => ({
@@ -291,7 +293,8 @@ class SerpAPI {
 
     const items = data.organic_results;
     if (!items || !Array.isArray(items) || items.length === 0) {
-      throw new AppError('E002', 'SerpAPI empty results', 502);
+      console.warn(`[SerpAPI] getSearchResults returned empty results for "${query}" (free plan — returning [])`);
+      return [];
     }
 
     return items.map((item: any) => ({
@@ -319,7 +322,8 @@ class SerpAPI {
 
     const items = data.related_questions;
     if (!items || !Array.isArray(items) || items.length === 0) {
-      throw new AppError('E002', 'SerpAPI empty results', 502);
+      console.warn(`[SerpAPI] getRelatedQuestions returned empty results for "${query}" (free plan — returning [])`);
+      return [];
     }
 
     return items.map((item: any) => ({
@@ -348,7 +352,8 @@ class SerpAPI {
 
     const items = data.news_results;
     if (!items || !Array.isArray(items) || items.length === 0) {
-      throw new AppError('E002', 'SerpAPI empty results', 502);
+      console.warn(`[SerpAPI] getNewsResults returned empty results for "${query}" (free plan — returning [])`);
+      return [];
     }
 
     return items.map((item: any) => ({

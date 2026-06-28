@@ -125,10 +125,7 @@ export class CronService {
     const { dryRun = false } = options;
 
     try {
-      const serpAPI = new SerpAPI();
-      const keywordMatrix = new KeywordMatrix(serpAPI, prisma);
-
-      // Get top trends to use as head terms
+      // Get top unprocessed trends
       const topTrends = await prisma.trend.findMany({
         where: { processed: false },
         orderBy: { trendScore: 'desc' },
@@ -136,18 +133,36 @@ export class CronService {
         include: { category: true },
       });
 
-      const generated: string[] = [];
+      const created: string[] = [];
 
       for (const trend of topTrends) {
-        const headTerm = trend.query;
-        const keywords = await keywordMatrix.generateFromHeadTerm(
-          headTerm,
-          trend.category?.name || 'sports',
-        );
-        const validated = await keywordMatrix.validateWithSerpAPI(keywords);
-        const scored = keywordMatrix.scoreAndRank(validated);
+        if (!dryRun) {
+          // Create a keyword directly from the trend's query
+          await prisma.keyword.upsert({
+            where: { keyword: trend.normalizedQuery },
+            create: {
+              keyword: trend.normalizedQuery,
+              headTerm: trend.normalizedQuery,
+              modifier: 'auto',
+              categoryId: trend.categoryId,
+              searchVolume: trend.searchVolume ?? 0,
+              difficulty: 50,
+              cpc: 0.5,
+              intent: 'informational',
+              status: 'approved',
+            },
+            update: {
+              headTerm: trend.normalizedQuery,
+              modifier: 'auto',
+              categoryId: trend.categoryId,
+              searchVolume: trend.searchVolume ?? 0,
+              difficulty: 50,
+              cpc: 0.5,
+              intent: 'informational',
+              status: 'approved',
+            },
+          });
 
-        if (!dryRun && scored.length > 0) {
           // Mark trend as processed
           await prisma.trend.update({
             where: { id: trend.id },
@@ -155,16 +170,14 @@ export class CronService {
           });
         }
 
-        generated.push(
-          ...scored.slice(0, Math.max(1, Math.floor(MAX_NEW_KEYWORDS / topTrends.length))).map((k: any) => k.keyword),
-        );
+        created.push(trend.normalizedQuery);
       }
 
       return {
         success: true,
         exitCode: 0,
-        message: `Generated ${generated.length} keywords from ${topTrends.length} trends${dryRun ? ' (dry-run)' : ''}`,
-        details: { keywordCount: generated.length, trendCount: topTrends.length, dryRun },
+        message: `Created ${created.length} keywords from ${topTrends.length} trends${dryRun ? ' (dry-run)' : ''}`,
+        details: { keywordCount: created.length, trendCount: topTrends.length, dryRun },
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

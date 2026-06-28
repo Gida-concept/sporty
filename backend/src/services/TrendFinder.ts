@@ -22,7 +22,7 @@ const DEFAULT_WEIGHTS: ScoringWeights = {
 };
 
 const DEFAULT_GEOS = ['us', 'gb', 'ca', 'au'];
-const MIN_SEARCH_VOLUME = 500;
+const MIN_SEARCH_VOLUME = 300;
 
 // ---------------------------------------------------------------------------
 // TrendFinder
