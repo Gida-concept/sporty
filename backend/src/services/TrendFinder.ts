@@ -82,9 +82,22 @@ class TrendFinder {
       throw new AppError('E002', 'No trending searches found from any geo', 502);
     }
 
-    const categoryRecord = await this.prisma.category.findUnique({ where: { slug: category } });
-    if (!categoryRecord) {
-      throw new AppError('E005', `Category '${category}' not found`, 400);
+    // Support comma-separated category slugs (e.g. "sports,entertainment")
+    const categorySlugs = category.split(',').map(s => s.trim()).filter(Boolean);
+    const categoryRecords = await this.prisma.category.findMany({
+      where: { slug: { in: categorySlugs } },
+    });
+
+    if (categoryRecords.length === 0) {
+      throw new AppError('E005', `No categories found for: '${category}'`, 400);
+    }
+
+    // Warn if some requested categories weren't found
+    const foundSlugs = new Set(categoryRecords.map(c => c.slug));
+    for (const slug of categorySlugs) {
+      if (!foundSlugs.has(slug)) {
+        console.warn(`[TrendFinder] Category '${slug}' not found (configured in DB?)`);
+      }
     }
 
     const savedTrends: Trend[] = [];
@@ -102,33 +115,35 @@ class TrendFinder {
         .replace(/[^a-z0-9 ]/g, '')
         .trim();
 
-      const existing = await this.prisma.trend.findFirst({
-        where: { normalizedQuery, categoryId: categoryRecord.id },
-      });
+      for (const categoryRecord of categoryRecords) {
+        const existing = await this.prisma.trend.findFirst({
+          where: { normalizedQuery, categoryId: categoryRecord.id },
+        });
 
-      if (existing) {
-        const updated = await this.prisma.trend.update({
-          where: { id: existing.id },
-          data: {
-            searchVolume: item.volume,
-            geo: item.geo ?? null,
-            trendScore: score,
-            fetchedAt: new Date(),
-          },
-        });
-        savedTrends.push(updated);
-      } else {
-        const created = await this.prisma.trend.create({
-          data: {
-            query: item.query,
-            normalizedQuery,
-            categoryId: categoryRecord.id,
-            searchVolume: item.volume,
-            geo: item.geo ?? null,
-            trendScore: score,
-          },
-        });
-        savedTrends.push(created);
+        if (existing) {
+          const updated = await this.prisma.trend.update({
+            where: { id: existing.id },
+            data: {
+              searchVolume: item.volume,
+              geo: item.geo ?? null,
+              trendScore: score,
+              fetchedAt: new Date(),
+            },
+          });
+          savedTrends.push(updated);
+        } else {
+          const created = await this.prisma.trend.create({
+            data: {
+              query: item.query,
+              normalizedQuery,
+              categoryId: categoryRecord.id,
+              searchVolume: item.volume,
+              geo: item.geo ?? null,
+              trendScore: score,
+            },
+          });
+          savedTrends.push(created);
+        }
       }
     }
 
