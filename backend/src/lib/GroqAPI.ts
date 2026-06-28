@@ -45,8 +45,8 @@ export interface ChatCompletionResponse {
 // ---------------------------------------------------------------------------
 
 const BASE_URL = 'https://api.groq.com/openai/v1';
-const PRIMARY_MODEL = 'llama-3.3-70b-versatile';
-const FALLBACK_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
+const PRIMARY_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
+const FALLBACK_MODEL = 'llama-3.3-70b-versatile';
 const DEFAULT_TEMPERATURE = 0.3;
 const DEFAULT_MAX_TOKENS = 4096;
 const MAX_RETRIES = 3;
@@ -54,8 +54,8 @@ const RETRY_DELAYS_MS = [1000, 2000, 4000];
 
 /** Approximate industry-standard pricing per 1M tokens. */
 const MODEL_PRICING: Record<string, { inputPer1M: number; outputPer1M: number }> = {
-  'llama-3.3-70b-versatile': { inputPer1M: 0.59, outputPer1M: 0.79 },
   'meta-llama/llama-4-scout-17b-16e-instruct': { inputPer1M: 0.15, outputPer1M: 0.6 },
+  'llama-3.3-70b-versatile': { inputPer1M: 0.59, outputPer1M: 0.79 },
 };
 
 // ---------------------------------------------------------------------------
