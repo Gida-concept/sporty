@@ -90,8 +90,15 @@ class GroqAPI {
    *
    * Uses the primary Llama 3.3 70B model by default. Pass `model` in params to
    * override, or use {@link generateWithFallback} for automatic fallback.
+   *
+   * @param retryCount - When > 0, a cache-buster suffix is appended to the
+   *   cache key so each retry attempt gets a fresh API response (the retry
+   *   loop in GroqWriter needs every attempt to bypass the cache).
    */
-  async generateChatCompletion(params: ChatCompletionParams): Promise<ChatCompletionResponse> {
+  async generateChatCompletion(
+    params: ChatCompletionParams,
+    retryCount: number = 0,
+  ): Promise<ChatCompletionResponse> {
     const body: Record<string, unknown> = {
       model: params.model ?? PRIMARY_MODEL,
       messages: params.messages,
@@ -104,13 +111,14 @@ class GroqAPI {
     }
 
     // Check content-addressable cache — identical prompts reuse cached responses
-    const cached = this.getCachedResponse(body);
+    // retryCount is factored into the key so retries get fresh responses
+    const cached = this.getCachedResponse(body, retryCount);
     if (cached) return cached;
 
     const result = await this._fetch('/chat/completions', body);
 
     // Cache the successful response for future identical prompts
-    this.setCachedResponse(body, result);
+    this.setCachedResponse(body, result, retryCount);
 
     return result;
   }
@@ -118,18 +126,27 @@ class GroqAPI {
   /**
    * Generate structured JSON output by forcing Groq's `json_object` response
    * format. Returns the parsed JSON object.
+   *
+   * @param retryCount - Forwarded to {@link generateChatCompletion} so retries
+   *   bypass the response cache.
    */
-  async generateStructured<T>(params: StructuredGenerationParams): Promise<T> {
-    const response = await this.generateChatCompletion({
-      model: PRIMARY_MODEL,
-      messages: [
-        { role: 'system', content: params.systemPrompt },
-        { role: 'user', content: params.userPrompt },
-      ],
-      temperature: params.temperature ?? DEFAULT_TEMPERATURE,
-      max_tokens: params.max_tokens ?? DEFAULT_MAX_TOKENS,
-      response_format: { type: 'json_object' },
-    });
+  async generateStructured<T>(
+    params: StructuredGenerationParams,
+    retryCount: number = 0,
+  ): Promise<T> {
+    const response = await this.generateChatCompletion(
+      {
+        model: PRIMARY_MODEL,
+        messages: [
+          { role: 'system', content: params.systemPrompt },
+          { role: 'user', content: params.userPrompt },
+        ],
+        temperature: params.temperature ?? DEFAULT_TEMPERATURE,
+        max_tokens: params.max_tokens ?? DEFAULT_MAX_TOKENS,
+        response_format: { type: 'json_object' },
+      },
+      retryCount,
+    );
 
     const rawContent = response.choices[0]?.message?.content;
     if (!rawContent) {
@@ -213,9 +230,15 @@ class GroqAPI {
   /**
    * Check the content-addressable cache for a previously returned response
    * matching the given request body. Returns null on cache miss or expiry.
+   *
+   * The `retryCount` is incorporated into the key so retry attempts (which
+   * send identical prompts) each get their own cache slot.
    */
-  private getCachedResponse(body: Record<string, unknown>): ChatCompletionResponse | null {
-    const key = JSON.stringify(body);
+  private getCachedResponse(
+    body: Record<string, unknown>,
+    retryCount: number = 0,
+  ): ChatCompletionResponse | null {
+    const key = JSON.stringify(body) + (retryCount > 0 ? `:retry_${retryCount}` : '');
     const entry = this.responseCache.get(key);
     if (entry && Date.now() - entry.timestamp < this.CACHE_TTL_MS) {
       return entry.response;
@@ -227,13 +250,20 @@ class GroqAPI {
   /**
    * Store a successful response in the content-addressable cache. Evicts the
    * oldest entry when the cache is full.
+   *
+   * The `retryCount` is incorporated into the key so retry attempts each get
+   * their own cache slot.
    */
-  private setCachedResponse(body: Record<string, unknown>, response: ChatCompletionResponse): void {
+  private setCachedResponse(
+    body: Record<string, unknown>,
+    response: ChatCompletionResponse,
+    retryCount: number = 0,
+  ): void {
     if (this.responseCache.size >= this.MAX_CACHE_ENTRIES) {
       const firstKey = this.responseCache.keys().next().value;
       if (firstKey) this.responseCache.delete(firstKey);
     }
-    const key = JSON.stringify(body);
+    const key = JSON.stringify(body) + (retryCount > 0 ? `:retry_${retryCount}` : '');
     this.responseCache.set(key, { response, timestamp: Date.now() });
   }
 
