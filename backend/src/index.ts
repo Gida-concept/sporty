@@ -59,9 +59,9 @@ const globalLimiter = rateLimit({
 app.use(globalLimiter);
 app.use(compression());
 
-// Global request timeout (30 seconds)
+// Global request timeout (180 seconds)
 app.use((req, res, next) => {
-  res.setTimeout(30_000, () => {
+  res.setTimeout(180_000, () => {
     res.status(503).json({
       success: false,
       error: { code: 'E013', message: 'Request timed out' },

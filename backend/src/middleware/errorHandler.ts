@@ -20,7 +20,12 @@ const errorCodeStatusMap: Record<string, number> = {
   E012: 400,
 };
 
-export function errorHandler(err: Error, _req: Request, res: Response, _next: NextFunction): void {
+export function errorHandler(err: Error, _req: Request, res: Response, next: NextFunction): void {
+  // Prevent double-response crash when headers were already sent (e.g., by timeout middleware)
+  if (res.headersSent) {
+    return next(err);
+  }
+
   const timestamp = new Date().toISOString();
   const logEntry = JSON.stringify({
     level: 'error',
